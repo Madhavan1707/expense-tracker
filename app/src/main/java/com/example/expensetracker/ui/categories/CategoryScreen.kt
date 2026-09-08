@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,7 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -54,6 +59,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.expensetracker.AppViewModelProvider
 import com.example.expensetracker.data.Category
 import com.example.expensetracker.data.DefaultCategories
+import com.example.expensetracker.data.EmojiCatalog
 import com.example.expensetracker.ui.components.CategoryAvatar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -235,8 +241,11 @@ private fun CategoryEditorDialog(
     onConfirm: (name: String, emoji: String, colorArgb: Int) -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
-    var emoji by remember { mutableStateOf(initial?.emoji ?: DefaultCategories.emojiChoices.first()) }
+    var emoji by remember { mutableStateOf(initial?.emoji ?: EmojiCatalog.DEFAULT) }
     var color by remember { mutableStateOf(initial?.colorArgb ?: DefaultCategories.palette.first()) }
+    var iconQuery by remember { mutableStateOf("") }
+
+    val icons = remember(iconQuery) { EmojiCatalog.search(iconQuery) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -258,27 +267,59 @@ private fun CategoryEditorDialog(
                 Spacer(Modifier.height(20.dp))
                 Text("Icon", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    maxItemsInEachRow = 7,
-                ) {
-                    DefaultCategories.emojiChoices.forEach { choice ->
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (choice == emoji) {
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    } else {
-                                        Color.Transparent
-                                    }
+                OutlinedTextField(
+                    value = iconQuery,
+                    onValueChange = { iconQuery = it },
+                    placeholder = { Text("Search icons") },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (iconQuery.isNotEmpty()) {
+                            IconButton(onClick = { iconQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear icon search")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(Modifier.height(8.dp))
+                if (icons.isEmpty()) {
+                    Text(
+                        text = "No icon matches that.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp),
+                    )
+                } else {
+                    // Pinned height: the grid holds 230-odd icons, and letting it
+                    // size itself would push the colour picker off the screen.
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(6),
+                        modifier = Modifier.height(172.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(items = icons, key = { it.emoji }) { candidate ->
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (candidate.emoji == emoji) {
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                        } else {
+                                            Color.Transparent
+                                        }
+                                    )
+                                    .clickable { emoji = candidate.emoji },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = candidate.emoji,
+                                    style = MaterialTheme.typography.titleMedium,
                                 )
-                                .clickable { emoji = choice },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(text = choice, style = MaterialTheme.typography.titleMedium)
+                            }
                         }
                     }
                 }
@@ -289,7 +330,7 @@ private fun CategoryEditorDialog(
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    maxItemsInEachRow = 7,
+                    maxItemsInEachRow = 6,
                 ) {
                     DefaultCategories.palette.forEach { swatch ->
                         Box(
