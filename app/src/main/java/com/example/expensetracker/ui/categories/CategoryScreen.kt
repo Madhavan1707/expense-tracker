@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -292,11 +293,12 @@ private fun CategoryEditorDialog(
                         modifier = Modifier.padding(vertical = 24.dp),
                     )
                 } else {
-                    // Pinned height: the grid holds 230-odd icons, and letting it
-                    // size itself would push the colour picker off the screen.
+                    // Capped, not pinned: the grid holds 230-odd icons and would
+                    // push the colour picker off the screen given its head, but a
+                    // search narrowed to one hit should not leave a hole either.
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(6),
-                        modifier = Modifier.height(172.dp),
+                        modifier = Modifier.heightIn(max = 172.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {

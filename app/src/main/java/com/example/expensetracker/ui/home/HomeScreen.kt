@@ -112,7 +112,8 @@ fun HomeScreen(
                 }
                 snackbarHostState.showSnackbar(
                     if (written) {
-                        "Exported ${ready.count} expenses"
+                        "Exported ${ready.count} " +
+                            if (ready.count == 1) "expense" else "expenses"
                     } else {
                         "Could not write that file"
                     }
