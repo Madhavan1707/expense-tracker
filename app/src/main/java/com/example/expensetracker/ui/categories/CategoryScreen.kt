@@ -1,0 +1,323 @@
+package com.example.expensetracker.ui.categories
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.expensetracker.AppViewModelProvider
+import com.example.expensetracker.data.Category
+import com.example.expensetracker.data.DefaultCategories
+import com.example.expensetracker.ui.components.CategoryAvatar
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: CategoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var editing by remember { mutableStateOf<Category?>(null) }
+    var creating by remember { mutableStateOf(false) }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text("Categories") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { creating = true }) {
+                Icon(Icons.Default.Add, contentDescription = "New category")
+            }
+        },
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize(),
+        ) {
+            items(items = uiState.active, key = { it.id }) { category ->
+                CategoryRow(
+                    category = category,
+                    canMoveUp = category != uiState.active.first(),
+                    canMoveDown = category != uiState.active.last(),
+                    onEdit = { editing = category },
+                    onMoveUp = { viewModel.moveUp(category) },
+                    onMoveDown = { viewModel.moveDown(category) },
+                    onArchive = { viewModel.setArchived(category, true) },
+                    onRestore = { viewModel.setArchived(category, false) },
+                )
+            }
+
+            if (uiState.archived.isNotEmpty()) {
+                item(key = "archived-header") {
+                    Text(
+                        text = "ARCHIVED",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp),
+                    )
+                }
+                item(key = "archived-note") {
+                    Text(
+                        text = "Hidden when you log an expense. Past expenses still show them.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    )
+                }
+                items(items = uiState.archived, key = { it.id }) { category ->
+                    CategoryRow(
+                        category = category,
+                        canMoveUp = false,
+                        canMoveDown = false,
+                        onEdit = { editing = category },
+                        onMoveUp = {},
+                        onMoveDown = {},
+                        onArchive = { viewModel.setArchived(category, true) },
+                        onRestore = { viewModel.setArchived(category, false) },
+                    )
+                }
+            }
+
+            item(key = "bottom-space") { Spacer(Modifier.height(96.dp)) }
+        }
+    }
+
+    val target = editing
+    if (target != null) {
+        CategoryEditorDialog(
+            initial = target,
+            onDismiss = { editing = null },
+            onConfirm = { name, emoji, color ->
+                viewModel.update(target.copy(name = name, emoji = emoji, colorArgb = color))
+                editing = null
+            },
+        )
+    }
+
+    if (creating) {
+        CategoryEditorDialog(
+            initial = null,
+            onDismiss = { creating = false },
+            onConfirm = { name, emoji, color ->
+                viewModel.add(name, emoji, color)
+                creating = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun CategoryRow(
+    category: Category,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onEdit: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onArchive: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onEdit)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CategoryAvatar(emoji = category.emoji, colorArgb = category.colorArgb, size = 40.dp)
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = category.name,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+
+        Box {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = "Options for " + category.name)
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Edit") },
+                    onClick = { menuOpen = false; onEdit() },
+                )
+                if (canMoveUp) {
+                    DropdownMenuItem(
+                        text = { Text("Move up") },
+                        onClick = { menuOpen = false; onMoveUp() },
+                    )
+                }
+                if (canMoveDown) {
+                    DropdownMenuItem(
+                        text = { Text("Move down") },
+                        onClick = { menuOpen = false; onMoveDown() },
+                    )
+                }
+                if (category.isArchived) {
+                    DropdownMenuItem(
+                        text = { Text("Restore") },
+                        onClick = { menuOpen = false; onRestore() },
+                    )
+                } else {
+                    DropdownMenuItem(
+                        text = { Text("Archive") },
+                        onClick = { menuOpen = false; onArchive() },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CategoryEditorDialog(
+    initial: Category?,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, emoji: String, colorArgb: Int) -> Unit,
+) {
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var emoji by remember { mutableStateOf(initial?.emoji ?: DefaultCategories.emojiChoices.first()) }
+    var color by remember { mutableStateOf(initial?.colorArgb ?: DefaultCategories.palette.first()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial == null) "New category" else "Edit category") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CategoryAvatar(emoji = emoji, colorArgb = color, size = 48.dp)
+                    Spacer(Modifier.width(12.dp))
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Name") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text("Icon", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    maxItemsInEachRow = 7,
+                ) {
+                    DefaultCategories.emojiChoices.forEach { choice ->
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (choice == emoji) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                                .clickable { emoji = choice },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(text = choice, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text("Colour", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    maxItemsInEachRow = 7,
+                ) {
+                    DefaultCategories.palette.forEach { swatch ->
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(swatch))
+                                .border(
+                                    width = if (swatch == color) 3.dp else 0.dp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    shape = CircleShape,
+                                )
+                                .clickable { color = swatch },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim(), emoji, color) },
+                enabled = name.isNotBlank(),
+            ) {
+                Text("Save", fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
