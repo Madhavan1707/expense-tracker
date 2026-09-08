@@ -21,6 +21,20 @@ interface ExpenseDao {
     )
     fun observeInRange(startDay: Long, endDay: Long): Flow<List<ExpenseWithCategory>>
 
+    /**
+     * The same rows as [observeInRange], read once and oldest first. Exports
+     * are a snapshot, not a subscription, and a spreadsheet reads top-down.
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM expenses
+        WHERE date BETWEEN :startDay AND :endDay
+        ORDER BY date ASC, createdAt ASC, id ASC
+        """
+    )
+    suspend fun listInRange(startDay: Long, endDay: Long): List<ExpenseWithCategory>
+
     @Query(
         """
         SELECT COALESCE(SUM(amountMinor), 0) FROM expenses
