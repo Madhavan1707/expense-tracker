@@ -34,6 +34,10 @@ class ExpenseRepository(
     fun observeMonthCategoryTotals(month: YearMonth): Flow<List<CategoryTotal>> =
         month.epochDayRange().let { expenseDao.observeCategoryTotalsInRange(it.first, it.last) }
 
+    /** Everything an export of [scope] should contain, oldest first. */
+    suspend fun expensesFor(scope: ExportScope): List<ExpenseWithCategory> =
+        scope.epochDayRange().let { expenseDao.listInRange(it.first, it.last) }
+
     suspend fun findExpense(id: Long): Expense? = expenseDao.findById(id)
 
     suspend fun lastPaymentMethod(): PaymentMethod? = expenseDao.lastPaymentMethod()
@@ -62,7 +66,7 @@ class ExpenseRepository(
 
     suspend fun deleteExpense(expense: Expense) = expenseDao.delete(expense)
 
-    /** Puts a swipe-deleted expense back, keeping its original id. */
+    /** Puts a deleted expense back, keeping its original id. */
     suspend fun restoreExpense(expense: Expense) {
         expenseDao.insert(expense)
     }

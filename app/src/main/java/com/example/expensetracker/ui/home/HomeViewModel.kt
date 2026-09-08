@@ -2,8 +2,11 @@ package com.example.expensetracker.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.expensetracker.data.CsvExport
 import com.example.expensetracker.data.Expense
 import com.example.expensetracker.data.ExpenseRepository
+import com.example.expensetracker.data.ExportScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -22,8 +26,13 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
     private val selectedMonth = MutableStateFlow(YearMonth.now())
     val month: StateFlow<YearMonth> = selectedMonth.asStateFlow()
 
-    /** Held so a swipe-delete can be undone from the snackbar. */
+    /** Held so a confirmed delete can still be taken back from the snackbar. */
     private var lastDeleted: Expense? = null
+
+    private val _pendingExport = MutableStateFlow<PendingExport?>(null)
+
+    /** Set once a CSV is built and waiting for the user to name a file for it. */
+    val pendingExport: StateFlow<PendingExport?> = _pendingExport.asStateFlow()
 
     val uiState: StateFlow<HomeUiState> = selectedMonth
         .flatMapLatest { month ->
@@ -64,6 +73,11 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
         selectedMonth.value = YearMonth.now()
     }
 
+    /**
+     * Deletion is confirmed by a dialog before this is ever called. The row is
+     * still held afterwards, because confirming the wrong row is as easy as
+     * swiping it.
+     */
     fun delete(expense: Expense) {
         lastDeleted = expense
         viewModelScope.launch { repository.deleteExpense(expense) }
@@ -74,4 +88,42 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
         lastDeleted = null
         viewModelScope.launch { repository.restoreExpense(expense) }
     }
+
+    /**
+     * Builds the CSV for [scope]. An export with no rows in it is not worth a
+     * file picker, so that case calls [onEmpty] and stops instead.
+     */
+    fun prepareExport(scope: ExportScope, onEmpty: () -> Unit) {
+        viewModelScope.launch {
+            val rows = repository.expensesFor(scope)
+            if (rows.isEmpty()) {
+                onEmpty()
+            } else {
+                // Room hands the rows back on the main thread, and building the
+                // file is string work over every one of them. An export of a few
+                // years of expenses would stall the frame if it stayed here.
+                val bytes = withContext(Dispatchers.Default) { CsvExport.toBytes(rows) }
+                _pendingExport.value = PendingExport(
+                    fileName = CsvExport.fileName(scope),
+                    bytes = bytes,
+                    count = rows.size,
+                )
+            }
+        }
+    }
+
+    fun clearPendingExport() {
+        _pendingExport.value = null
+    }
 }
+
+/**
+ * A finished CSV waiting for somewhere to go. Held rather than rebuilt after
+ * the file picker returns, so what gets written is what the user asked for
+ * even if an expense changes while the picker is open.
+ */
+class PendingExport(
+    val fileName: String,
+    val bytes: ByteArray,
+    val count: Int,
+)
