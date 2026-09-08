@@ -66,6 +66,11 @@ class ExpenseRepository(
 
     suspend fun deleteExpense(expense: Expense) = expenseDao.delete(expense)
 
+    /** Puts a deleted expense back, keeping its original id. */
+    suspend fun restoreExpense(expense: Expense) {
+        expenseDao.insert(expense)
+    }
+
     suspend fun addCategory(name: String, emoji: String, colorArgb: Int): Long =
         categoryDao.insert(
             Category(

@@ -24,6 +24,9 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
     private val selectedMonth = MutableStateFlow(YearMonth.now())
     val month: StateFlow<YearMonth> = selectedMonth.asStateFlow()
 
+    /** Held so a confirmed delete can still be taken back from the snackbar. */
+    private var lastDeleted: Expense? = null
+
     private val _pendingExport = MutableStateFlow<PendingExport?>(null)
 
     /** Set once a CSV is built and waiting for the user to name a file for it. */
@@ -68,9 +71,20 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
         selectedMonth.value = YearMonth.now()
     }
 
-    /** Deletion is confirmed by a dialog before this is ever called. */
+    /**
+     * Deletion is confirmed by a dialog before this is ever called. The row is
+     * still held afterwards, because confirming the wrong row is as easy as
+     * swiping it.
+     */
     fun delete(expense: Expense) {
+        lastDeleted = expense
         viewModelScope.launch { repository.deleteExpense(expense) }
+    }
+
+    fun undoDelete() {
+        val expense = lastDeleted ?: return
+        lastDeleted = null
+        viewModelScope.launch { repository.restoreExpense(expense) }
     }
 
     /**
