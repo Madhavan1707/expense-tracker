@@ -52,9 +52,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -68,6 +71,7 @@ import com.example.expensetracker.data.PaymentMethod
 import com.example.expensetracker.ui.components.CategoryAvatar
 import com.example.expensetracker.ui.format.DateLabels
 import com.example.expensetracker.ui.format.Money
+import com.example.expensetracker.ui.format.tabular
 import java.time.LocalDate
 
 const val SAVE_BUTTON_TAG = "save-expense"
@@ -81,6 +85,7 @@ fun EntryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val amountFocus = remember { FocusRequester() }
+    val haptics = LocalHapticFeedback.current
     var showDatePicker by remember { mutableStateOf(false) }
 
     // The screen closes itself once the write has actually landed.
@@ -96,18 +101,31 @@ fun EntryScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(if (uiState.isEditing) "Edit expense" else "New expense") },
+                title = {
+                    Text(
+                        stringResource(
+                            if (uiState.isEditing) R.string.entry_title_edit
+                            else R.string.entry_title_new
+                        )
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel")
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.cancel),
+                        )
                     }
                 },
                 actions = {
                     if (uiState.isEditing) {
-                        IconButton(onClick = viewModel::delete) {
+                        IconButton(onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.delete()
+                        }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete expense",
+                                contentDescription = stringResource(R.string.entry_delete),
                                 tint = MaterialTheme.colorScheme.error,
                             )
                         }
@@ -118,7 +136,10 @@ fun EntryScreen(
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Button(
-                    onClick = viewModel::save,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.save()
+                    },
                     enabled = uiState.canSave,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -127,7 +148,12 @@ fun EntryScreen(
                         .imePadding()
                         .testTag(SAVE_BUTTON_TAG),
                 ) {
-                    Text(if (uiState.isEditing) "Save changes" else "Save expense")
+                    Text(
+                        stringResource(
+                            if (uiState.isEditing) R.string.entry_save_edit
+                            else R.string.entry_save_new
+                        )
+                    )
                 }
             }
         },
@@ -150,7 +176,7 @@ fun EntryScreen(
 
             if (uiState.repeatSuggestions.isNotEmpty()) {
                 Text(
-                    text = "Log again",
+                    text = stringResource(R.string.entry_log_again),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -187,18 +213,20 @@ fun EntryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(amountFocus),
-                label = { Text("Amount") },
+                label = { Text(stringResource(R.string.entry_amount)) },
                 prefix = { Text(Money.SYMBOL) },
-                placeholder = { Text("0") },
+                placeholder = { Text(stringResource(R.string.entry_amount_hint)) },
                 singleLine = true,
-                textStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+                textStyle = tabular(
+                    MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold)
+                ),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal,
                     imeAction = ImeAction.Next,
                 ),
             )
 
-            SectionLabel("Category")
+            SectionLabel(stringResource(R.string.entry_category))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -219,53 +247,67 @@ fun EntryScreen(
                 }
             }
 
-            SectionLabel("Date")
-            val today = LocalDate.now()
+            SectionLabel(stringResource(R.string.entry_date))
+            val today = remember { LocalDate.now() }
+            val yesterday = remember(today) { today.minusDays(1) }
+            val customDate = uiState.date != today && uiState.date != yesterday
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = uiState.date == today,
                     onClick = { viewModel.onDateChange(today) },
-                    label = { Text("Today") },
+                    label = { Text(stringResource(R.string.entry_today)) },
                 )
                 FilterChip(
-                    selected = uiState.date == today.minusDays(1),
-                    onClick = { viewModel.onDateChange(today.minusDays(1)) },
-                    label = { Text("Yesterday") },
+                    selected = uiState.date == yesterday,
+                    onClick = { viewModel.onDateChange(yesterday) },
+                    label = { Text(stringResource(R.string.entry_yesterday)) },
                 )
                 FilterChip(
-                    selected = uiState.date != today && uiState.date != today.minusDays(1),
+                    selected = customDate,
                     onClick = { showDatePicker = true },
-                    label = { Text(DateLabels.fullDate(uiState.date)) },
+                    // Only shows a date once one is actually chosen. It used to
+                    // read "25 Aug 2026" while "Today" sat selected beside it,
+                    // which looked like two different days were both picked.
+                    label = {
+                        Text(
+                            if (customDate) DateLabels.fullDate(uiState.date)
+                            else stringResource(R.string.entry_pick_date)
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.DateRange,
-                            contentDescription = "Pick a date",
+                            contentDescription = null,
                         )
                     },
                 )
             }
 
-            SectionLabel("Note")
+            SectionLabel(stringResource(R.string.entry_note))
             OutlinedTextField(
                 value = uiState.note,
                 onValueChange = viewModel::onNoteChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Lunch with Rahul") },
+                placeholder = { Text(stringResource(R.string.entry_note_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             )
 
-            SectionLabel("Merchant or place")
+            SectionLabel(stringResource(R.string.entry_merchant))
             OutlinedTextField(
                 value = uiState.merchant,
                 onValueChange = viewModel::onMerchantChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Truffles") },
+                placeholder = { Text(stringResource(R.string.entry_merchant_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             )
 
-            val suggestions = uiState.matchingMerchants()
+            // Filtering the merchant history ran on every recomposition, and
+            // every keystroke anywhere on this form is a recomposition.
+            val suggestions = remember(uiState.merchant, uiState.merchantSuggestions) {
+                uiState.matchingMerchants()
+            }
             if (suggestions.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -278,7 +320,7 @@ fun EntryScreen(
                 }
             }
 
-            SectionLabel("Paid with")
+            SectionLabel(stringResource(R.string.entry_paid_with))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PaymentMethod.entries.forEach { method ->
                     FilterChip(
@@ -305,10 +347,12 @@ fun EntryScreen(
                         viewModel.onDateChange(LocalDate.ofEpochDay(millis / MILLIS_PER_DAY))
                     }
                     showDatePicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
             },
         ) {
             DatePicker(state = pickerState)
@@ -345,6 +389,8 @@ private fun QuickAddField(
     var text by rememberSaveable { mutableStateOf("") }
     var unrecognised by rememberSaveable { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
+    // Read here: the intent is built inside a click handler, not a composable.
+    val speechPrompt = stringResource(R.string.entry_speech_prompt)
 
     val voiceAvailable = remember {
         runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
@@ -374,17 +420,16 @@ private fun QuickAddField(
                 unrecognised = false
             },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Quick add") },
-            placeholder = { Text("284 auto cash") },
+            label = { Text(stringResource(R.string.entry_quick_add)) },
+            placeholder = { Text(stringResource(R.string.entry_quick_add_hint)) },
             singleLine = true,
             isError = unrecognised,
             supportingText = {
                 Text(
-                    if (unrecognised) {
-                        "Could not make sense of that. Try \"284 auto cash\"."
-                    } else {
-                        "Amount, what it was, where, how you paid \u2014 in any order."
-                    }
+                    stringResource(
+                        if (unrecognised) R.string.entry_quick_add_error
+                        else R.string.entry_quick_add_help
+                    )
                 )
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -395,7 +440,10 @@ private fun QuickAddField(
                         keyboard?.hide()
                         submit(text)
                     }) {
-                        Icon(Icons.Default.Check, contentDescription = "Fill the form")
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = stringResource(R.string.entry_quick_add_fill),
+                        )
                     }
 
                     voiceAvailable -> IconButton(onClick = {
@@ -404,13 +452,13 @@ private fun QuickAddField(
                                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
                             )
-                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Say the expense")
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, speechPrompt)
                         }
                         runCatching { speech.launch(intent) }
                     }) {
                         Icon(
                             painter = painterResource(R.drawable.ic_mic),
-                            contentDescription = "Speak the expense",
+                            contentDescription = stringResource(R.string.entry_quick_add_speak),
                         )
                     }
                 }

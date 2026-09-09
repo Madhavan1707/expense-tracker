@@ -21,7 +21,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 is most of the difference between how the app feels in debug
+            // and how it feels shipped: it inlines and shrinks the Compose
+            // runtime the transaction feed leans on. Left off, a release build
+            // was no faster than the debug one it was meant to be judged over.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

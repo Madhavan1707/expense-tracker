@@ -25,11 +25,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.expensetracker.R
 import com.example.expensetracker.data.CategoryTotal
 import com.example.expensetracker.ui.format.Money
+import com.example.expensetracker.ui.format.tabular
 
 private const val MAX_BAR_SEGMENTS = 5
 
@@ -56,22 +62,22 @@ fun MonthSummaryCard(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "TOTAL SPENT",
+                text = stringResource(R.string.summary_total_spent),
                 style = MaterialTheme.typography.labelMedium,
                 letterSpacing = 1.2.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = Money.format(totalMinor),
-                style = MaterialTheme.typography.displaySmall,
+                text = remember(totalMinor) { Money.format(totalMinor) },
+                style = tabular(MaterialTheme.typography.displaySmall),
                 fontWeight = FontWeight.Bold,
             )
 
             if (transactionCount == 0) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Nothing logged this month yet.",
+                    text = stringResource(R.string.summary_nothing_logged),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -79,19 +85,25 @@ fun MonthSummaryCard(
             }
 
             Spacer(Modifier.height(4.dp))
+            val transactions = pluralStringResource(
+                R.plurals.summary_transactions,
+                transactionCount,
+                transactionCount,
+            )
+            val perDay = stringResource(
+                R.string.summary_per_day,
+                remember(averagePerDayMinor) { Money.format(averagePerDayMinor) },
+            )
             Text(
-                text = buildString {
-                    append(transactionCount)
-                    append(if (transactionCount == 1) " transaction" else " transactions")
-                    append("  \u00B7  ")
-                    append(Money.format(averagePerDayMinor))
-                    append("/day average")
-                },
+                text = "$transactions  \u00B7  $perDay",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            val segments = remember(categoryTotals) { segmentsFor(categoryTotals) }
+            val otherLabel = stringResource(R.string.summary_everything_else)
+            val segments = remember(categoryTotals, otherLabel) {
+                segmentsFor(categoryTotals, otherLabel)
+            }
             if (segments.isNotEmpty()) {
                 Spacer(Modifier.height(18.dp))
                 BreakdownBar(segments)
@@ -108,7 +120,7 @@ fun MonthSummaryCard(
 }
 
 /** Top categories by spend, with everything smaller folded into one grey slice. */
-private fun segmentsFor(totals: List<CategoryTotal>): List<Segment> {
+private fun segmentsFor(totals: List<CategoryTotal>, otherLabel: String): List<Segment> {
     val positive = totals.filter { it.totalMinor > 0 }
     if (positive.isEmpty()) return emptyList()
 
@@ -117,7 +129,7 @@ private fun segmentsFor(totals: List<CategoryTotal>): List<Segment> {
     }
     val remainder = positive.drop(MAX_BAR_SEGMENTS).sumOf { it.totalMinor }
     return if (remainder > 0) {
-        leaders + Segment("Everything else", Color(0xFF9E9E9E), remainder)
+        leaders + Segment(otherLabel, Color(0xFF9E9E9E), remainder)
     } else {
         leaders
     }
@@ -125,11 +137,17 @@ private fun segmentsFor(totals: List<CategoryTotal>): List<Segment> {
 
 @Composable
 private fun BreakdownBar(segments: List<Segment>) {
+    // The bar carries its meaning in colour alone, so it needs a spoken
+    // equivalent. Sighted readers get the same thing from the legend below.
+    val description = remember(segments) {
+        segments.joinToString(", ") { "${it.label} ${Money.formatCompact(it.minor)}" }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(12.dp)
-            .clip(RoundedCornerShape(6.dp)),
+            .clip(RoundedCornerShape(6.dp))
+            .semantics { contentDescription = description },
     ) {
         segments.forEach { segment ->
             Box(
@@ -159,8 +177,8 @@ private fun LegendEntry(segment: Segment) {
         )
         Spacer(Modifier.size(5.dp))
         Text(
-            text = Money.formatCompact(segment.minor),
-            style = MaterialTheme.typography.bodySmall,
+            text = remember(segment.minor) { Money.formatCompact(segment.minor) },
+            style = tabular(MaterialTheme.typography.bodySmall),
             fontWeight = FontWeight.SemiBold,
         )
     }

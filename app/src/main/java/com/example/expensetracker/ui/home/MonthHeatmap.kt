@@ -1,15 +1,16 @@
 package com.example.expensetracker.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -55,14 +56,33 @@ object HeatmapLayout {
         return cells.chunked(7)
     }
 
+    /** How many shades a day with spending can take. */
+    const val LEVELS = 4
+
+    /** One alpha per tier. Spread wide enough that neighbouring tiers differ. */
+    private val ALPHAS = listOf(0.22f, 0.45f, 0.68f, 0.92f)
+
     /**
-     * How dark a day should be drawn, 0f to 1f, relative to the heaviest day of
-     * the month. A day with any spend at all never returns 0f, so a ₹20 day is
-     * still visible next to a rent day.
+     * The month's distinct spending levels, ascending.
+     *
+     * A day's rank in this list decides its shade, not its size relative to the
+     * heaviest day. Scaling against the maximum collapsed the whole month
+     * whenever one day was an outlier: with rent at ₹18,000, a ₹500 day scored
+     * 0.27 and a ₹1,500 day 0.31, so every ordinary day of August rendered as
+     * the same pale green and the calendar showed nothing but rent day.
      */
-    fun intensity(amountMinor: Long, maxMinor: Long): Float = when {
-        amountMinor <= 0L || maxMinor <= 0L -> 0f
-        else -> 0.25f + 0.75f * (amountMinor.toFloat() / maxMinor.toFloat())
+    fun scaleFor(amounts: Collection<Long>): List<Long> =
+        amounts.filter { it > 0L }.distinct().sorted()
+
+    /**
+     * How dark a day should be drawn, 0f for a day with no spending at all.
+     * [scale] comes from [scaleFor] over the same month.
+     */
+    fun intensity(amountMinor: Long, scale: List<Long>): Float {
+        if (amountMinor <= 0L || scale.isEmpty()) return 0f
+        if (scale.size == 1) return ALPHAS.last()
+        val rank = scale.binarySearch(amountMinor).coerceAtLeast(0)
+        return ALPHAS[(rank * (LEVELS - 1)) / (scale.size - 1)]
     }
 }
 
@@ -78,10 +98,11 @@ fun MonthHeatmap(
     onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Both were recomputed every frame; weeksFor alone allocates 42 LocalDates.
+    // All three were recomputed every frame; weeksFor alone allocates 42
+    // LocalDates, and LocalDate.now() reads the system clock and time zone.
     val weeks = remember(month) { HeatmapLayout.weeksFor(month) }
-    val maxMinor = remember(dayTotals) { dayTotals.values.maxOrNull() ?: 0L }
-    val today = LocalDate.now()
+    val scale = remember(dayTotals) { HeatmapLayout.scaleFor(dayTotals.values) }
+    val today = remember { LocalDate.now() }
     val accent = MaterialTheme.colorScheme.primary
     val emptyCell = MaterialTheme.colorScheme.surfaceContainerHighest
 
@@ -113,7 +134,7 @@ fun MonthHeatmap(
                         DayCell(
                             date = date,
                             amountMinor = amount,
-                            intensity = HeatmapLayout.intensity(amount, maxMinor),
+                            intensity = HeatmapLayout.intensity(amount, scale),
                             accent = accent,
                             emptyColor = emptyCell,
                             isToday = date == today,
@@ -147,17 +168,20 @@ private fun DayCell(
         MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    val description = if (amountMinor > 0L) {
-        "${DateLabels.fullDate(date)}, ${Money.format(amountMinor)}"
-    } else {
-        "${DateLabels.fullDate(date)}, nothing spent"
+    val description = remember(date, amountMinor) {
+        if (amountMinor > 0L) {
+            "${DateLabels.fullDate(date)}, ${Money.format(amountMinor)}"
+        } else {
+            "${DateLabels.fullDate(date)}, nothing spent"
+        }
     }
 
     Box(
         modifier = modifier
-            // Slightly wider than tall: six-week months would otherwise push the
-            // transaction feed, which is the point of the screen, below the fold.
-            .aspectRatio(1.3f)
+            // 48dp is the Android minimum for anything you are expected to hit.
+            // These were 1.3:1 boxes about 34dp tall, which is under it. The
+            // extra height is paid for by the collapse control on the header.
+            .heightIn(min = MIN_TOUCH_TARGET)
             .clip(RoundedCornerShape(8.dp))
             .background(background)
             .clickable(enabled = amountMinor > 0L, onClick = onClick)
@@ -171,5 +195,20 @@ private fun DayCell(
             color = label,
             modifier = Modifier.padding(2.dp),
         )
+        if (isToday) {
+            // Bold alone is nearly invisible next to yesterday. A ring is not.
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        shape = RoundedCornerShape(8.dp),
+                    )
+            )
+        }
     }
 }
+
+/** Android's minimum touch target. */
+private val MIN_TOUCH_TARGET = 48.dp

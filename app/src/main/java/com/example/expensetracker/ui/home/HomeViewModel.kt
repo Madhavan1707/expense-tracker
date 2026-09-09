@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,6 +56,13 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
                 )
             }
         }
+        // Grouping, day labels and the heatmap map are built here, not on the
+        // main thread. Measured on a Pixel 9 Pro emulator with 481 expenses,
+        // this block cost 465ms on its first run (desugared java.time loading
+        // its formatter machinery) and 7-60ms on every emission after, which
+        // Room produces on every single write. All of it used to land on the
+        // main thread, because stateIn collects in viewModelScope.
+        .flowOn(Dispatchers.Default)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),

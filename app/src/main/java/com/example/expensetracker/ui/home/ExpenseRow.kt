@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.example.expensetracker.data.ExpenseWithCategory
 import com.example.expensetracker.ui.components.CategoryAvatar
 import com.example.expensetracker.ui.format.Money
+import com.example.expensetracker.ui.format.tabular
 
 /**
  * One transaction. The headline is whatever you actually wrote down; the
@@ -45,18 +47,25 @@ fun ExpenseRow(
     showMerchant: Boolean = true,
 ) {
     val expense = item.expense
-    val headline = expense.note.ifBlank { expense.merchant }.ifBlank { item.category.name }
+    val headline = remember(expense.note, expense.merchant, item.category.name) {
+        expense.note.ifBlank { expense.merchant }.ifBlank { item.category.name }
+    }
 
     // Whatever already became the headline is dropped from the detail line, so
     // a bare expense reads "Food" over "UPI", not "Food" over "Food . UPI".
-    val details = buildList {
-        if (dateLabel != null) add(dateLabel)
-        if (item.category.name != headline) add(item.category.name)
-        if (showMerchant && expense.merchant.isNotBlank() && expense.merchant != headline) {
-            add(expense.merchant)
-        }
-        add(expense.paymentMethod.label)
-    }.joinToString("  \u00B7  ")
+    // Remembered because this list and its joined string were rebuilt for every
+    // visible row on every recomposition, which is once per frame of a scroll.
+    val details = remember(item, headline, dateLabel, showMerchant) {
+        buildList {
+            if (dateLabel != null) add(dateLabel)
+            if (item.category.name != headline) add(item.category.name)
+            if (showMerchant && expense.merchant.isNotBlank() && expense.merchant != headline) {
+                add(expense.merchant)
+            }
+            add(expense.paymentMethod.label)
+        }.joinToString("  \u00B7  ")
+    }
+    val amount = remember(expense.amountMinor) { Money.format(expense.amountMinor) }
 
     Row(
         modifier = modifier
@@ -91,8 +100,8 @@ fun ExpenseRow(
         Spacer(Modifier.width(12.dp))
 
         Text(
-            text = Money.format(expense.amountMinor),
-            style = MaterialTheme.typography.titleMedium,
+            text = amount,
+            style = tabular(MaterialTheme.typography.titleMedium),
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -138,8 +147,8 @@ fun DayHeader(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = Money.format(totalMinor),
-            style = MaterialTheme.typography.labelMedium,
+            text = remember(totalMinor) { Money.format(totalMinor) },
+            style = tabular(MaterialTheme.typography.labelMedium),
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

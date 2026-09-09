@@ -27,8 +27,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,9 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.expensetracker.AppViewModelProvider
+import com.example.expensetracker.R
 import com.example.expensetracker.data.MerchantSummary
 import com.example.expensetracker.ui.format.DateLabels
 import com.example.expensetracker.ui.format.Money
+import com.example.expensetracker.ui.format.tabular
 import com.example.expensetracker.ui.home.ExpenseRow
 import java.time.LocalDate
 
@@ -56,10 +61,13 @@ fun MerchantListScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Places") },
+                title = { Text(stringResource(R.string.places_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                        )
                     }
                 },
             )
@@ -94,10 +102,13 @@ private fun EmptyPlaces(modifier: Modifier = Modifier) {
     ) {
         Text(text = "🏷️", style = MaterialTheme.typography.displayMedium)
         Spacer(Modifier.height(12.dp))
-        Text("No places yet", style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.places_empty_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "Fill in the merchant when you log an expense and it will show up here.",
+            text = stringResource(R.string.places_empty_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -123,20 +134,14 @@ private fun MerchantRow(merchant: MerchantSummary, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = buildString {
-                    append(merchant.visitCount)
-                    append(if (merchant.visitCount == 1) " visit" else " visits")
-                    append("  ·  ")
-                    append(Money.format(merchant.averageMinor))
-                    append(" average")
-                },
+                text = visitsAndAverage(merchant.visitCount, merchant.averageMinor),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Text(
-            text = Money.format(merchant.totalMinor),
-            style = MaterialTheme.typography.titleMedium,
+            text = remember(merchant.totalMinor) { Money.format(merchant.totalMinor) },
+            style = tabular(MaterialTheme.typography.titleMedium),
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -151,6 +156,7 @@ fun MerchantDetailScreen(
     viewModel: MerchantDetailViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val today = remember { LocalDate.now() }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -166,7 +172,10 @@ fun MerchantDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                        )
                     }
                 },
             )
@@ -188,25 +197,19 @@ fun MerchantDetailScreen(
                 ) {
                     Column(Modifier.padding(20.dp)) {
                         Text(
-                            text = "TOTAL SPENT HERE",
+                            text = stringResource(R.string.merchant_total_spent),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            text = Money.format(uiState.totalMinor),
-                            style = MaterialTheme.typography.displaySmall,
+                            text = remember(uiState.totalMinor) { Money.format(uiState.totalMinor) },
+                            style = tabular(MaterialTheme.typography.displaySmall),
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = buildString {
-                                append(uiState.visitCount)
-                                append(if (uiState.visitCount == 1) " visit" else " visits")
-                                append("  ·  ")
-                                append(Money.format(uiState.averageMinor))
-                                append(" average")
-                            },
+                            text = visitsAndAverage(uiState.visitCount, uiState.averageMinor),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -242,18 +245,35 @@ fun MerchantDetailScreen(
                 }
             }
 
-            items(items = uiState.expenses, key = { it.expense.id }) { item ->
+            items(
+                items = uiState.expenses,
+                key = { it.expense.id },
+                contentType = { "expense" },
+            ) { item ->
                 ExpenseRow(
                     item = item,
                     onClick = { onExpenseClick(item.expense.id) },
-                    dateLabel = DateLabels.dayHeader(
-                        LocalDate.ofEpochDay(item.expense.date),
-                        LocalDate.now(),
-                    ),
+                    // Both the clock read and the date formatting used to run
+                    // per row, per recomposition, which is per frame of a scroll.
+                    dateLabel = remember(item.expense.date, today) {
+                        DateLabels.dayHeader(LocalDate.ofEpochDay(item.expense.date), today)
+                    },
                     // The screen is already about this place; repeating it is noise.
                     showMerchant = false,
+                    modifier = Modifier.animateItem(),
                 )
             }
         }
     }
+}
+
+/** "3 visits  ·  ₹420 average", the same line on both merchant screens. */
+@Composable
+private fun visitsAndAverage(visitCount: Int, averageMinor: Long): String {
+    val visits = pluralStringResource(R.plurals.merchant_visits, visitCount, visitCount)
+    val average = stringResource(
+        R.string.merchant_average,
+        remember(averageMinor) { Money.format(averageMinor) },
+    )
+    return "$visits  ·  $average"
 }
