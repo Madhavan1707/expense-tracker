@@ -6,6 +6,7 @@ import com.example.expensetracker.data.CsvExport
 import com.example.expensetracker.data.Expense
 import com.example.expensetracker.data.ExpenseRepository
 import com.example.expensetracker.data.ExportScope
+import com.example.expensetracker.ui.format.DateLabels
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,12 +38,17 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
 
     val uiState: StateFlow<HomeUiState> = selectedMonth
         .flatMapLatest { month ->
+            val today = LocalDate.now()
+            val previous = month.minusMonths(1)
+            // A month still running is compared only as far as it has got, so
+            // the range the previous month is read over depends on today.
+            val comparableDay = MonthPacing.comparableDayOf(month, previous, today)
             combine(
                 repository.observeMonth(month),
                 repository.observeMonthTotal(month),
                 repository.observeMonthCategoryTotals(month),
-            ) { expenses, total, categoryTotals ->
-                val today = LocalDate.now()
+                repository.observeMonthTotalUpTo(previous, comparableDay),
+            ) { expenses, total, categoryTotals, previousTotal ->
                 val elapsed = ExpenseGrouping.daysElapsed(month, today)
                 val days = ExpenseGrouping.toDayGroups(expenses, today)
                 HomeUiState(
@@ -53,6 +59,14 @@ class HomeViewModel(private val repository: ExpenseRepository) : ViewModel() {
                     categoryTotals = categoryTotals,
                     days = days,
                     dayTotals = ExpenseGrouping.dayTotalsOf(days),
+                    pace = MonthPacing.of(
+                        month = month,
+                        today = today,
+                        totalMinor = total,
+                        previousComparableMinor = previousTotal,
+                        previousLabel = DateLabels.monthReference(previous, month),
+                        monthEndLabel = DateLabels.dayAndMonth(month.atEndOfMonth()),
+                    ),
                 )
             }
         }

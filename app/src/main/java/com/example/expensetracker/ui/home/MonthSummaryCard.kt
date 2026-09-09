@@ -15,8 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +40,7 @@ import com.example.expensetracker.R
 import com.example.expensetracker.data.CategoryTotal
 import com.example.expensetracker.ui.format.Money
 import com.example.expensetracker.ui.format.tabular
+import kotlin.math.abs
 
 private const val MAX_BAR_SEGMENTS = 5
 
@@ -53,6 +58,7 @@ fun MonthSummaryCard(
     averagePerDayMinor: Long,
     categoryTotals: List<CategoryTotal>,
     modifier: Modifier = Modifier,
+    pace: MonthPace = MonthPace(),
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -100,6 +106,11 @@ fun MonthSummaryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            if (!pace.isEmpty) {
+                Spacer(Modifier.height(10.dp))
+                PaceLine(pace)
+            }
+
             val otherLabel = stringResource(R.string.summary_everything_else)
             val segments = remember(categoryTotals, otherLabel) {
                 segmentsFor(categoryTotals, otherLabel)
@@ -115,6 +126,76 @@ fun MonthSummaryCard(
                     segments.forEach { LegendEntry(it) }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The verdict under the total: how this month compares with the last one, and
+ * where it ends up if the rest of it carries on the same way.
+ *
+ * The arrow, not the colour, carries the direction. Colour alone would leave
+ * the line meaningless to anyone who cannot separate the two.
+ */
+@Composable
+private fun PaceLine(pace: MonthPace) {
+    Column {
+        pace.delta?.let { delta ->
+            val amount = remember(delta.minor) { Money.format(abs(delta.minor)) }
+            val text = when {
+                delta.minor == 0L -> stringResource(
+                    if (delta.partial) R.string.pace_same_so_far else R.string.pace_same,
+                    delta.previousLabel,
+                )
+
+                delta.spentMore -> stringResource(
+                    if (delta.partial) R.string.pace_more_so_far else R.string.pace_more,
+                    amount,
+                    delta.previousLabel,
+                )
+
+                else -> stringResource(
+                    if (delta.partial) R.string.pace_less_so_far else R.string.pace_less,
+                    amount,
+                    delta.previousLabel,
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (delta.minor != 0L) {
+                    Icon(
+                        imageVector = if (delta.spentMore) {
+                            Icons.Filled.KeyboardArrowUp
+                        } else {
+                            Icons.Filled.KeyboardArrowDown
+                        },
+                        contentDescription = null,
+                        tint = if (delta.spentMore) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(2.dp))
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        pace.projectedMinor?.let { projected ->
+            Text(
+                text = stringResource(
+                    R.string.pace_projection,
+                    remember(projected) { Money.format(projected) },
+                    pace.projectionEndLabel,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

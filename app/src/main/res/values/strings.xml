@@ -35,6 +35,19 @@
         <item quantity="other">%d transactions</item>
     </plurals>
 
+    <!-- Month pace. %1$s is an amount, %2$s a month name like August. -->
+    <string name="pace_more">%1$s more than %2$s</string>
+    <string name="pace_less">%1$s less than %2$s</string>
+    <string name="pace_same">The same as %1$s</string>
+    <!-- Part-month comparisons say so, because the month is not over yet -->
+    <string name="pace_more_so_far">%1$s more than %2$s by this point</string>
+    <string name="pace_less_so_far">%1$s less than %2$s by this point</string>
+    <string name="pace_same_so_far">Level with %1$s by this point</string>
+    <!-- %1$s is a projected total, %2$s the day the month ends, like 30 Sep.
+         The rate is stated up front so the figure cannot be read as money
+         already spent. -->
+    <string name="pace_projection">At this rate, %1$s by %2$s</string>
+
     <!-- Entry -->
     <string name="entry_title_new">New expense</string>
     <string name="entry_title_edit">Edit expense</string>

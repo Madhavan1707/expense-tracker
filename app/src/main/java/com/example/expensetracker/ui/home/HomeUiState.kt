@@ -27,6 +27,8 @@ data class HomeUiState(
      * skipping and recomposed all 42 day cells.
      */
     val dayTotals: Map<LocalDate, Long> = emptyMap(),
+    /** How the month is going against the one before it. */
+    val pace: MonthPace = MonthPace(),
 ) {
     val monthTitle: String get() = DateLabels.monthTitle(month)
     val isEmpty: Boolean get() = days.isEmpty()

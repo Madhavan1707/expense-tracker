@@ -265,6 +265,7 @@ fun HomeScreen(
                     averagePerDayMinor = uiState.averagePerDayMinor,
                     categoryTotals = uiState.categoryTotals,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    pace = uiState.pace,
                 )
             }
 
