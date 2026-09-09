@@ -61,34 +61,80 @@ class HeatmapLayoutTest {
 
     @Test
     fun `days without spend have no tint`() {
-        assertEquals(0f, HeatmapLayout.intensity(0L, 100_000L), 0.0001f)
-        assertEquals(0f, HeatmapLayout.intensity(-5L, 100_000L), 0.0001f)
+        val scale = HeatmapLayout.scaleFor(listOf(100_000L))
+
+        assertEquals(0f, HeatmapLayout.intensity(0L, scale), 0.0001f)
+        assertEquals(0f, HeatmapLayout.intensity(-5L, scale), 0.0001f)
     }
 
     @Test
-    fun `an empty month cannot divide by zero`() {
-        assertEquals(0f, HeatmapLayout.intensity(50_000L, 0L), 0.0001f)
+    fun `an empty month has no scale and tints nothing`() {
+        val scale = HeatmapLayout.scaleFor(emptyList())
+
+        assertTrue(scale.isEmpty())
+        assertEquals(0f, HeatmapLayout.intensity(50_000L, scale), 0.0001f)
     }
 
     @Test
-    fun `the heaviest day is fully saturated`() {
-        assertEquals(1f, HeatmapLayout.intensity(100_000L, 100_000L), 0.0001f)
+    fun `the scale holds only distinct spending days, ascending`() {
+        val scale = HeatmapLayout.scaleFor(listOf(500L, 0L, 900L, 500L, -3L, 100L))
+
+        assertEquals(listOf(100L, 500L, 900L), scale)
     }
 
     @Test
-    fun `a small day stays visible next to a rent day`() {
-        val tiny = HeatmapLayout.intensity(2_000L, 1_800_000L)
+    fun `the heaviest day is the darkest and a lone day is fully saturated`() {
+        val scale = HeatmapLayout.scaleFor(listOf(100L, 500L, 900L))
+        val lone = HeatmapLayout.scaleFor(listOf(42_000L))
 
-        assertTrue("a day with spend must be visible, was $tiny", tiny >= 0.25f)
-        assertTrue(tiny < 0.35f)
+        assertEquals(HeatmapLayout.intensity(900L, scale), 0.92f, 0.0001f)
+        assertEquals(HeatmapLayout.intensity(42_000L, lone), 0.92f, 0.0001f)
     }
 
+    /**
+     * The bug this replaced: scaling against the month's maximum meant one rent
+     * day flattened every other day onto the same shade.
+     */
     @Test
-    fun `intensity rises with the amount`() {
-        assertEquals(0.625f, HeatmapLayout.intensity(50_000L, 100_000L), 0.0001f)
+    fun `an outlier does not flatten the ordinary days`() {
+        val august = listOf(50_000L, 150_000L, 30_000L, 80_000L, 1_800_000L)
+        val scale = HeatmapLayout.scaleFor(august)
+
+        val quiet = HeatmapLayout.intensity(30_000L, scale)
+        val busy = HeatmapLayout.intensity(150_000L, scale)
+        val rent = HeatmapLayout.intensity(1_800_000L, scale)
+
+        assertTrue("a quiet day must stay visible, was $quiet", quiet > 0f)
+        assertTrue("a busy day must read darker than a quiet one", busy > quiet)
+        assertTrue("rent must still be the darkest", rent > busy)
         assertTrue(
-            HeatmapLayout.intensity(80_000L, 100_000L) >
-                HeatmapLayout.intensity(40_000L, 100_000L)
+            "ordinary days must be told apart, gap was ${busy - quiet}",
+            busy - quiet >= 0.2f,
         )
+    }
+
+    @Test
+    fun `intensity never falls as the amount rises`() {
+        val amounts = listOf(10L, 20L, 30L, 40L, 50L, 60L, 900L)
+        val scale = HeatmapLayout.scaleFor(amounts)
+
+        amounts.sorted().zipWithNext { smaller, larger ->
+            assertTrue(
+                "$smaller must not draw darker than $larger",
+                HeatmapLayout.intensity(smaller, scale) <=
+                    HeatmapLayout.intensity(larger, scale),
+            )
+        }
+    }
+
+    @Test
+    fun `every spending day lands on one of the defined tiers`() {
+        val amounts = (1L..40L).map { it * 1_000L }
+        val scale = HeatmapLayout.scaleFor(amounts)
+
+        val used = amounts.map { HeatmapLayout.intensity(it, scale) }.distinct()
+
+        assertEquals(HeatmapLayout.LEVELS, used.size)
+        assertTrue("every tint must be visible", used.all { it > 0f })
     }
 }

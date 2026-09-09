@@ -1,3 +1,130 @@
 <resources>
     <string name="app_name">Expense Tracker</string>
+
+    <!-- Shared -->
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="ok">OK</string>
+
+    <!-- Home -->
+    <string name="home_previous_month">Previous month</string>
+    <string name="home_next_month">Next month</string>
+    <string name="home_more">More</string>
+    <string name="home_back_to_this_month">Back to this month</string>
+    <string name="home_places">Places</string>
+    <string name="home_categories">Categories</string>
+    <string name="home_show_calendar">Show calendar</string>
+    <string name="home_hide_calendar">Hide calendar</string>
+    <string name="home_add_expense">Add expense</string>
+    <string name="home_expense_deleted">Expense deleted</string>
+    <string name="home_undo">Undo</string>
+    <string name="home_empty_title_current">No expenses yet</string>
+    <string name="home_empty_title_past">Nothing recorded this month</string>
+    <string name="home_empty_body_current">Tap + to log the first one.</string>
+    <string name="home_empty_body_past">Use the arrows above to look at another month.</string>
+
+    <!-- Month summary -->
+    <string name="summary_total_spent">TOTAL SPENT</string>
+    <string name="summary_nothing_logged">Nothing logged this month yet.</string>
+    <string name="summary_everything_else">Everything else</string>
+    <!-- %1$s is a formatted amount, for example ₹1,263.52 -->
+    <string name="summary_per_day">%1$s/day average</string>
+    <plurals name="summary_transactions">
+        <item quantity="one">%d transaction</item>
+        <item quantity="other">%d transactions</item>
+    </plurals>
+
+    <!-- Month pace. %1$s is an amount, %2$s a month name like August. -->
+    <string name="pace_more">%1$s more than %2$s</string>
+    <string name="pace_less">%1$s less than %2$s</string>
+    <string name="pace_same">The same as %1$s</string>
+    <!-- Part-month comparisons say so, because the month is not over yet -->
+    <string name="pace_more_so_far">%1$s more than %2$s by this point</string>
+    <string name="pace_less_so_far">%1$s less than %2$s by this point</string>
+    <string name="pace_same_so_far">Level with %1$s by this point</string>
+    <!-- %1$s is a projected total, %2$s the day the month ends, like 30 Sep.
+         The rate is stated up front so the figure cannot be read as money
+         already spent. -->
+    <string name="pace_projection">At this rate, %1$s by %2$s</string>
+
+    <!-- Entry -->
+    <string name="entry_title_new">New expense</string>
+    <string name="entry_title_edit">Edit expense</string>
+    <string name="entry_delete">Delete expense</string>
+    <string name="entry_save_new">Save expense</string>
+    <string name="entry_save_edit">Save changes</string>
+    <string name="entry_quick_add">Quick add</string>
+    <string name="entry_quick_add_hint">284 auto cash</string>
+    <string name="entry_quick_add_help">Amount, what it was, where, how you paid — in any order.</string>
+    <string name="entry_quick_add_error">Could not make sense of that. Try \"284 auto cash\".</string>
+    <string name="entry_quick_add_fill">Fill the form</string>
+    <string name="entry_quick_add_speak">Speak the expense</string>
+    <string name="entry_speech_prompt">Say the expense</string>
+    <string name="entry_log_again">Log again</string>
+    <string name="entry_amount">Amount</string>
+    <string name="entry_amount_hint">0</string>
+    <string name="entry_category">Category</string>
+    <string name="entry_date">Date</string>
+    <string name="entry_today">Today</string>
+    <string name="entry_yesterday">Yesterday</string>
+    <string name="entry_pick_date">Pick a date</string>
+    <string name="entry_note">Note</string>
+    <string name="entry_note_hint">Lunch with Rahul</string>
+    <string name="entry_merchant">Merchant or place</string>
+    <string name="entry_merchant_hint">Truffles</string>
+    <string name="entry_paid_with">Paid with</string>
+
+    <!-- Places -->
+    <string name="places_title">Places</string>
+    <string name="places_empty_title">No places yet</string>
+    <string name="places_empty_body">Fill in the merchant when you log an expense and it will show up here.</string>
+    <string name="merchant_total_spent">TOTAL SPENT HERE</string>
+    <!-- %1$s is a formatted amount, for example ₹420 -->
+    <string name="merchant_average">%1$s average</string>
+    <plurals name="merchant_visits">
+        <item quantity="one">%d visit</item>
+        <item quantity="other">%d visits</item>
+    </plurals>
+
+    <!-- Delete confirmation -->
+    <string name="delete_title">Delete this expense?</string>
+    <string name="delete_confirm">Delete</string>
+
+    <!-- CSV export -->
+    <string name="export_csv">Export CSV</string>
+    <string name="export_action">Export</string>
+    <string name="export_this_month">This month</string>
+    <string name="export_everything">All expenses</string>
+    <string name="export_everything_subtitle">Everything recorded so far</string>
+    <string name="export_range">Date range</string>
+    <string name="export_range_subtitle">Choose a start and an end date</string>
+    <string name="export_nothing_in_range">Nothing to export in that range</string>
+    <string name="export_could_not_write">Could not write that file</string>
+    <plurals name="export_done">
+        <item quantity="one">Exported %d expense</item>
+        <item quantity="other">Exported %d expenses</item>
+    </plurals>
+
+    <!-- Categories -->
+    <string name="categories_title">Categories</string>
+    <string name="category_new">New category</string>
+    <string name="category_edit">Edit category</string>
+    <string name="category_name">Name</string>
+    <string name="category_icon">Icon</string>
+    <string name="category_icon_search">Search icons</string>
+    <string name="category_icon_search_clear">Clear icon search</string>
+    <string name="category_icon_no_match">No icon matches that.</string>
+    <string name="category_colour">Colour</string>
+    <string name="category_edit_action">Edit</string>
+    <string name="category_move_up">Move up</string>
+    <string name="category_move_down">Move down</string>
+    <string name="category_archive">Archive</string>
+    <string name="category_restore">Restore</string>
+    <string name="category_archived_header">ARCHIVED</string>
+    <string name="category_archived_note">Hidden when you log an expense. Past expenses still show them.</string>
+    <!-- %1$s is a category name, for example Groceries -->
+    <string name="category_options">Options for %1$s</string>
+    <!-- %1$d is the swatch\'s position in the palette, counting from one -->
+    <string name="category_colour_swatch">Colour %1$d</string>
 </resources>

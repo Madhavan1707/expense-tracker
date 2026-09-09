@@ -34,6 +34,21 @@ class ExpenseRepository(
     fun observeMonthCategoryTotals(month: YearMonth): Flow<List<CategoryTotal>> =
         month.epochDayRange().let { expenseDao.observeCategoryTotalsInRange(it.first, it.last) }
 
+    /**
+     * [month]'s total from the 1st up to and including [dayOfMonth].
+     *
+     * This is what a month still running gets compared against: nine days of
+     * September against the first nine days of August. [dayOfMonth] is clamped,
+     * so asking a 28-day February for its 31st is not an error.
+     */
+    fun observeMonthTotalUpTo(month: YearMonth, dayOfMonth: Int): Flow<Long> {
+        val last = dayOfMonth.coerceIn(1, month.lengthOfMonth())
+        return expenseDao.observeTotalInRange(
+            month.atDay(1).toEpochDay(),
+            month.atDay(last).toEpochDay(),
+        )
+    }
+
     /** Everything an export of [scope] should contain, oldest first. */
     suspend fun expensesFor(scope: ExportScope): List<ExpenseWithCategory> =
         scope.epochDayRange().let { expenseDao.listInRange(it.first, it.last) }

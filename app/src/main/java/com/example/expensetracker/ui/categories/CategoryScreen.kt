@@ -3,6 +3,7 @@ package com.example.expensetracker.ui.categories
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.expensetracker.AppViewModelProvider
+import com.example.expensetracker.R
 import com.example.expensetracker.data.Category
 import com.example.expensetracker.data.DefaultCategories
 import com.example.expensetracker.data.EmojiCatalog
@@ -78,17 +84,23 @@ fun CategoryScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Categories") },
+                title = { Text(stringResource(R.string.categories_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                        )
                     }
                 },
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { creating = true }) {
-                Icon(Icons.Default.Add, contentDescription = "New category")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(R.string.category_new),
+                )
             }
         },
     ) { innerPadding ->
@@ -113,7 +125,7 @@ fun CategoryScreen(
             if (uiState.archived.isNotEmpty()) {
                 item(key = "archived-header") {
                     Text(
-                        text = "ARCHIVED",
+                        text = stringResource(R.string.category_archived_header),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp),
@@ -121,7 +133,7 @@ fun CategoryScreen(
                 }
                 item(key = "archived-note") {
                     Text(
-                        text = "Hidden when you log an expense. Past expenses still show them.",
+                        text = stringResource(R.string.category_archived_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
@@ -199,33 +211,36 @@ private fun CategoryRow(
 
         Box {
             IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "Options for " + category.name)
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.category_options, category.name),
+                )
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Edit") },
+                    text = { Text(stringResource(R.string.category_edit_action)) },
                     onClick = { menuOpen = false; onEdit() },
                 )
                 if (canMoveUp) {
                     DropdownMenuItem(
-                        text = { Text("Move up") },
+                        text = { Text(stringResource(R.string.category_move_up)) },
                         onClick = { menuOpen = false; onMoveUp() },
                     )
                 }
                 if (canMoveDown) {
                     DropdownMenuItem(
-                        text = { Text("Move down") },
+                        text = { Text(stringResource(R.string.category_move_down)) },
                         onClick = { menuOpen = false; onMoveDown() },
                     )
                 }
                 if (category.isArchived) {
                     DropdownMenuItem(
-                        text = { Text("Restore") },
+                        text = { Text(stringResource(R.string.category_restore)) },
                         onClick = { menuOpen = false; onRestore() },
                     )
                 } else {
                     DropdownMenuItem(
-                        text = { Text("Archive") },
+                        text = { Text(stringResource(R.string.category_archive)) },
                         onClick = { menuOpen = false; onArchive() },
                     )
                 }
@@ -250,7 +265,13 @@ private fun CategoryEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "New category" else "Edit category") },
+        title = {
+            Text(
+                stringResource(
+                    if (initial == null) R.string.category_new else R.string.category_edit
+                )
+            )
+        },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -259,25 +280,28 @@ private fun CategoryEditorDialog(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Name") },
+                        label = { Text(stringResource(R.string.category_name)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
                 }
 
                 Spacer(Modifier.height(20.dp))
-                Text("Icon", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.category_icon), style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = iconQuery,
                     onValueChange = { iconQuery = it },
-                    placeholder = { Text("Search icons") },
+                    placeholder = { Text(stringResource(R.string.category_icon_search)) },
                     singleLine = true,
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (iconQuery.isNotEmpty()) {
                             IconButton(onClick = { iconQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear icon search")
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.category_icon_search_clear),
+                                )
                             }
                         }
                     },
@@ -287,7 +311,7 @@ private fun CategoryEditorDialog(
                 Spacer(Modifier.height(8.dp))
                 if (icons.isEmpty()) {
                     Text(
-                        text = "No icon matches that.",
+                        text = stringResource(R.string.category_icon_no_match),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 24.dp),
@@ -298,14 +322,19 @@ private fun CategoryEditorDialog(
                     // search narrowed to one hit should not leave a hole either.
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(6),
-                        modifier = Modifier.heightIn(max = 172.dp),
+                        modifier = Modifier.heightIn(max = 216.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         items(items = icons, key = { it.emoji }) { candidate ->
+                            // The keywords the catalogue already carries make a
+                            // better spoken label than the emoji on its own,
+                            // which a screen reader reads by its Unicode name.
+                            val iconLabel = candidate.keywords.firstOrNull() ?: candidate.emoji
                             Box(
                                 modifier = Modifier
-                                    .size(38.dp)
+                                    // Was 38dp, under the 48dp minimum target.
+                                    .size(TOUCH_TARGET)
                                     .clip(CircleShape)
                                     .background(
                                         if (candidate.emoji == emoji) {
@@ -314,7 +343,12 @@ private fun CategoryEditorDialog(
                                             Color.Transparent
                                         }
                                     )
-                                    .clickable { emoji = candidate.emoji },
+                                    .selectable(
+                                        selected = candidate.emoji == emoji,
+                                        role = Role.RadioButton,
+                                        onClick = { emoji = candidate.emoji },
+                                    )
+                                    .semantics { contentDescription = iconLabel },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
@@ -327,26 +361,43 @@ private fun CategoryEditorDialog(
                 }
 
                 Spacer(Modifier.height(20.dp))
-                Text("Colour", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.category_colour), style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     maxItemsInEachRow = 6,
                 ) {
-                    DefaultCategories.palette.forEach { swatch ->
+                    DefaultCategories.palette.forEachIndexed { index, swatch ->
+                        // A screen reader had nothing to announce here: thirty
+                        // unlabelled boxes whose only state was a border. The
+                        // swatch is numbered because a colour has no fixed name.
+                        val label = stringResource(R.string.category_colour_swatch, index + 1)
                         Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(swatch))
-                                .border(
-                                    width = if (swatch == color) 3.dp else 0.dp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    shape = CircleShape,
+                                // Was 32dp, well under the 48dp minimum. The
+                                // painted circle stays 32dp; the target grew.
+                                .size(TOUCH_TARGET)
+                                .selectable(
+                                    selected = swatch == color,
+                                    role = Role.RadioButton,
+                                    onClick = { color = swatch },
                                 )
-                                .clickable { color = swatch },
-                        )
+                                .semantics { contentDescription = label },
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(swatch))
+                                    .border(
+                                        width = if (swatch == color) 3.dp else 0.dp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        shape = CircleShape,
+                                    )
+                            )
+                        }
                     }
                 }
             }
@@ -356,11 +407,14 @@ private fun CategoryEditorDialog(
                 onClick = { onConfirm(name.trim(), emoji, color) },
                 enabled = name.isNotBlank(),
             ) {
-                Text("Save", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.save), fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }
+
+/** The Android minimum touch target. */
+private val TOUCH_TARGET = 48.dp
