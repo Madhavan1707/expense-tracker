@@ -1,6 +1,7 @@
 package com.example.expensetracker.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,11 +46,24 @@ import kotlin.math.abs
 
 private const val MAX_BAR_SEGMENTS = 5
 
-private data class Segment(val label: String, val color: Color, val minor: Long)
+/**
+ * One slice of the breakdown bar. [categoryId] is null on the folded-together
+ * "everything else" slice, which is several categories and so opens none.
+ */
+private data class Segment(
+    val label: String,
+    val color: Color,
+    val minor: Long,
+    val categoryId: Long?,
+)
 
 /**
  * The "how am I doing" half of the home screen: the month's total, a single
  * proportional bar of where it went, and a legend of the biggest categories.
+ *
+ * Every legend entry naming one category is a way into it: tapping "Food" is
+ * the shortest question this screen can be asked, so it is answered here rather
+ * than only from the menu.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -59,6 +74,7 @@ fun MonthSummaryCard(
     categoryTotals: List<CategoryTotal>,
     modifier: Modifier = Modifier,
     pace: MonthPace = MonthPace(),
+    onCategoryClick: (Long) -> Unit = {},
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -123,7 +139,12 @@ fun MonthSummaryCard(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    segments.forEach { LegendEntry(it) }
+                    segments.forEach { segment ->
+                        LegendEntry(
+                            segment = segment,
+                            onOpen = segment.categoryId?.let { id -> { onCategoryClick(id) } },
+                        )
+                    }
                 }
             }
         }
@@ -206,11 +227,11 @@ private fun segmentsFor(totals: List<CategoryTotal>, otherLabel: String): List<S
     if (positive.isEmpty()) return emptyList()
 
     val leaders = positive.take(MAX_BAR_SEGMENTS).map {
-        Segment(it.name, Color(it.colorArgb), it.totalMinor)
+        Segment(it.name, Color(it.colorArgb), it.totalMinor, it.categoryId)
     }
     val remainder = positive.drop(MAX_BAR_SEGMENTS).sumOf { it.totalMinor }
     return if (remainder > 0) {
-        leaders + Segment(otherLabel, Color(0xFF9E9E9E), remainder)
+        leaders + Segment(otherLabel, Color(0xFF9E9E9E), remainder, categoryId = null)
     } else {
         leaders
     }
@@ -242,8 +263,30 @@ private fun BreakdownBar(segments: List<Segment>) {
 }
 
 @Composable
-private fun LegendEntry(segment: Segment) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun LegendEntry(segment: Segment, onOpen: (() -> Unit)?) {
+    val openLabel = stringResource(R.string.summary_open_category, segment.label)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        // The tap target is the whole entry, dot and figure included: a nine-dip
+        // swatch and a word are each too small to aim at on their own. Even
+        // together they came to about 24dp, under the 48dp minimum, so the row
+        // is padded out to it.
+        //
+        // The label goes through clickable's own onClickLabel rather than a
+        // trailing semantics block. A `semantics { onClick(...) { false } }`
+        // layered on top reports "not handled" to TalkBack and depends on merge
+        // order to keep the real action, which is a poor bet on the one control
+        // the label exists for.
+        modifier = if (onOpen == null) {
+            Modifier
+        } else {
+            Modifier
+                .clip(MaterialTheme.shapes.small)
+                .clickable(onClickLabel = openLabel, onClick = onOpen)
+                .defaultMinSize(minHeight = 48.dp)
+                .padding(horizontal = 4.dp, vertical = 2.dp)
+        },
+    ) {
         Box(
             modifier = Modifier
                 .size(9.dp)

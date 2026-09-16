@@ -84,7 +84,8 @@ import java.time.YearMonth
 fun HomeScreen(
     onAddExpense: () -> Unit,
     onEditExpense: (Long) -> Unit,
-    onManageCategories: () -> Unit,
+    onShowCategories: (YearMonth) -> Unit,
+    onShowCategory: (Long, YearMonth) -> Unit,
     onShowPlaces: () -> Unit,
     onShowMerchant: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -222,7 +223,7 @@ fun HomeScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.home_categories)) },
-                                onClick = { menuOpen = false; onManageCategories() },
+                                onClick = { menuOpen = false; onShowCategories(uiState.month) },
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.export_csv)) },
@@ -266,6 +267,7 @@ fun HomeScreen(
                     categoryTotals = uiState.categoryTotals,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     pace = uiState.pace,
+                    onCategoryClick = { id -> onShowCategory(id, uiState.month) },
                 )
             }
 
@@ -325,15 +327,17 @@ fun HomeScreen(
                         ExpenseRow(
                             item = item,
                             onClick = { onEditExpense(item.expense.id) },
-                            // Long press jumps to everything spent at that place.
-                            onLongClick = item.expense.merchant
-                                .takeIf { it.isNotBlank() }
-                                ?.let { merchant ->
-                                    {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onShowMerchant(merchant)
-                                    }
-                                },
+                            // Long press jumps to everything spent at that place,
+                            // or to the category when the row has no place on it.
+                            onLongClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val merchant = item.expense.merchant
+                                if (merchant.isNotBlank()) {
+                                    onShowMerchant(merchant)
+                                } else {
+                                    onShowCategory(item.expense.categoryId, uiState.month)
+                                }
+                            },
                         )
                     }
                 }

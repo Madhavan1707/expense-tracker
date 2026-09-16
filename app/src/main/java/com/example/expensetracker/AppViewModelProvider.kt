@@ -5,6 +5,8 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.expensetracker.ui.categories.CategoryDetailViewModel
+import com.example.expensetracker.ui.categories.CategorySpendListViewModel
 import com.example.expensetracker.ui.categories.CategoryViewModel
 import com.example.expensetracker.ui.entry.EntryViewModel
 import com.example.expensetracker.ui.home.HomeViewModel
@@ -18,6 +20,12 @@ object AppViewModelProvider {
         initializer { HomeViewModel(application().container.repository) }
         initializer { EntryViewModel(createSavedStateHandle(), application().container.repository) }
         initializer { CategoryViewModel(application().container.repository) }
+        initializer {
+            CategorySpendListViewModel(createSavedStateHandle(), application().container.repository)
+        }
+        initializer {
+            CategoryDetailViewModel(createSavedStateHandle(), application().container.repository)
+        }
         initializer { MerchantListViewModel(application().container.repository) }
         initializer {
             MerchantDetailViewModel(createSavedStateHandle(), application().container.repository)
