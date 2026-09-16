@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -136,8 +135,8 @@ fun MonthSummaryCard(
                 BreakdownBar(segments)
                 Spacer(Modifier.height(14.dp))
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     segments.forEach { segment ->
                         LegendEntry(
@@ -267,25 +266,33 @@ private fun LegendEntry(segment: Segment, onOpen: (() -> Unit)?) {
     val openLabel = stringResource(R.string.summary_open_category, segment.label)
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        // The tap target is the whole entry, dot and figure included: a nine-dip
-        // swatch and a word are each too small to aim at on their own. Even
-        // together they came to about 24dp, under the 48dp minimum, so the row
-        // is padded out to it.
+        // Every entry carries the same padding whether or not it opens
+        // anything, so a tappable "Food" and the inert "Everything else" sit on
+        // the same baseline. Giving the padding only to the clickable ones left
+        // the two measuring differently and the line looked ragged.
+        //
+        // The tap target is the whole entry, dot and figure included. It is
+        // still under Material's 48dp minimum: forcing it there doubled the
+        // height of the legend block, which is the densest thing on the card
+        // and the reason the breakdown is readable at a glance. The legend is
+        // the convenience route into a category — the browse list rows and the
+        // row long-press are both full-size targets.
         //
         // The label goes through clickable's own onClickLabel rather than a
         // trailing semantics block. A `semantics { onClick(...) { false } }`
         // layered on top reports "not handled" to TalkBack and depends on merge
         // order to keep the real action, which is a poor bet on the one control
         // the label exists for.
-        modifier = if (onOpen == null) {
-            Modifier
-        } else {
-            Modifier
-                .clip(MaterialTheme.shapes.small)
-                .clickable(onClickLabel = openLabel, onClick = onOpen)
-                .defaultMinSize(minHeight = 48.dp)
-                .padding(horizontal = 4.dp, vertical = 2.dp)
-        },
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .then(
+                if (onOpen == null) {
+                    Modifier
+                } else {
+                    Modifier.clickable(onClickLabel = openLabel, onClick = onOpen)
+                }
+            )
+            .padding(horizontal = 2.dp, vertical = 2.dp),
     ) {
         Box(
             modifier = Modifier
