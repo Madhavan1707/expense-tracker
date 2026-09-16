@@ -75,9 +75,9 @@ interface ExpenseDao {
     )
     fun observeMerchants(): Flow<List<String>>
 
-    /** Pre-selects the payment method on a new entry. */
-    @Query("SELECT paymentMethod FROM expenses ORDER BY createdAt DESC LIMIT 1")
-    suspend fun lastPaymentMethod(): PaymentMethod?
+    /** Pre-selects the payment method, and its bank, on a new entry. */
+    @Query("SELECT paymentMethod, bank FROM expenses ORDER BY createdAt DESC LIMIT 1")
+    suspend fun lastPaymentChoice(): PaymentChoice?
 
     @Query("SELECT COUNT(*) FROM expenses WHERE categoryId = :categoryId")
     suspend fun countForCategory(categoryId: Long): Int
@@ -89,6 +89,10 @@ interface ExpenseDao {
      * different fare every time, so varying amounts must still collapse into
      * one suggestion. `id` and `amountMinor` are bare columns paired with
      * MAX(createdAt), which SQLite resolves to the most recent row in the group.
+     *
+     * The bank is part of the grouping for the same reason the payment method
+     * is: the same lunch put on two different cards is two habits, and a chip
+     * that filled in the wrong card would be worse than no chip.
      */
     @Query(
         """
@@ -100,13 +104,14 @@ interface ExpenseDao {
                e.note AS note,
                e.merchant AS merchant,
                e.paymentMethod AS paymentMethod,
+               e.bank AS bank,
                e.amountMinor AS lastAmountMinor,
                COUNT(*) AS useCount,
                MAX(e.createdAt) AS lastUsedAt
         FROM expenses e
         JOIN categories c ON c.id = e.categoryId
         WHERE c.isArchived = 0 AND (e.note != '' OR e.merchant != '')
-        GROUP BY e.categoryId, e.note, e.merchant, e.paymentMethod
+        GROUP BY e.categoryId, e.note, e.merchant, e.paymentMethod, e.bank
         HAVING COUNT(*) >= 2
         ORDER BY useCount DESC, lastUsedAt DESC
         LIMIT :limit
@@ -149,6 +154,50 @@ interface ExpenseDao {
         """
     )
     fun observeForMerchant(merchant: String): Flow<List<ExpenseWithCategory>>
+
+    /**
+     * Every category spent under in one month, biggest spend first.
+     *
+     * Ranged rather than all-time so the figures match the month the home
+     * screen is showing: the breakdown bar you tap and the screen you land on
+     * have to agree, or the total reads as wrong.
+     *
+     * An inner join, so a category with nothing filed against it that month
+     * never reaches the list: the screen is about where the money went, and a
+     * category that has taken none of it has nothing to show.
+     */
+    @Query(
+        """
+        SELECT c.id AS categoryId,
+               c.name AS name,
+               c.emoji AS emoji,
+               c.colorArgb AS colorArgb,
+               c.isArchived AS isArchived,
+               COUNT(*) AS entryCount,
+               SUM(e.amountMinor) AS totalMinor,
+               MAX(e.date) AS lastDate
+        FROM expenses e
+        JOIN categories c ON c.id = e.categoryId
+        WHERE e.date BETWEEN :startDay AND :endDay
+        GROUP BY c.id
+        ORDER BY totalMinor DESC
+        """
+    )
+    fun observeCategorySpendInRange(startDay: Long, endDay: Long): Flow<List<CategorySpendSummary>>
+
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM expenses
+        WHERE categoryId = :categoryId AND date BETWEEN :startDay AND :endDay
+        ORDER BY date DESC, createdAt DESC, id DESC
+        """
+    )
+    fun observeForCategoryInRange(
+        categoryId: Long,
+        startDay: Long,
+        endDay: Long,
+    ): Flow<List<ExpenseWithCategory>>
 
     @Insert
     suspend fun insert(expense: Expense): Long

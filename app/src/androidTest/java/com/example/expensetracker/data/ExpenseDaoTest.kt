@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -140,7 +141,7 @@ class ExpenseDaoTest {
     }
 
     @Test
-    fun remembersTheMostRecentlyUsedPaymentMethod() = runBlocking {
+    fun remembersTheMostRecentlyUsedPaymentMethodAndItsBank() = runBlocking {
         expenseDao.insert(
             Expense(
                 amountMinor = 100L,
@@ -157,10 +158,52 @@ class ExpenseDaoTest {
                 date = LocalDate.of(2026, 8, 2).toEpochDay(),
                 createdAt = 200L,
                 paymentMethod = PaymentMethod.CARD,
+                bank = Bank.HSBC,
             )
         )
 
-        assertEquals(PaymentMethod.CARD, expenseDao.lastPaymentMethod())
+        val remembered = expenseDao.lastPaymentChoice()
+
+        assertEquals(PaymentMethod.CARD, remembered?.paymentMethod)
+        assertEquals(Bank.HSBC, remembered?.bank)
+    }
+
+    @Test
+    fun remembersThatTheLastPaymentHadNoBank() = runBlocking {
+        expenseDao.insert(
+            Expense(
+                amountMinor = 100L,
+                categoryId = foodId,
+                date = LocalDate.of(2026, 8, 1).toEpochDay(),
+                createdAt = 100L,
+                paymentMethod = PaymentMethod.CASH,
+            )
+        )
+
+        val remembered = expenseDao.lastPaymentChoice()
+
+        assertEquals(PaymentMethod.CASH, remembered?.paymentMethod)
+        assertNull(remembered?.bank)
+    }
+
+    /**
+     * The BANK payment method was retired. A row a migration somehow missed has
+     * to survive the whole read path — Room, the converters and the entity —
+     * not just PaymentMethod.fromName, which is covered on the JVM.
+     */
+    @Test
+    fun aRowHoldingRetiredValuesStillReadsBack() = runBlocking {
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO expenses " +
+                "(id, amountMinor, categoryId, date, createdAt, note, merchant, " +
+                "paymentMethod, bank) " +
+                "VALUES (99, 1000, $foodId, 20000, 100, '', '', 'BANK', 'AXIS')"
+        )
+
+        val row = expenseDao.findById(99L)!!
+
+        assertEquals(PaymentMethod.OTHER, row.paymentMethod)
+        assertNull(row.bank)
     }
 
     @Test

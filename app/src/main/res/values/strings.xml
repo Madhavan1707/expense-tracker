@@ -28,6 +28,8 @@
     <string name="summary_total_spent">TOTAL SPENT</string>
     <string name="summary_nothing_logged">Nothing logged this month yet.</string>
     <string name="summary_everything_else">Everything else</string>
+    <!-- Spoken when a breakdown legend entry is focused. %1$s is a category name -->
+    <string name="summary_open_category">See everything under %1$s</string>
     <!-- %1$s is a formatted amount, for example ₹1,263.52 -->
     <string name="summary_per_day">%1$s/day average</string>
     <plurals name="summary_transactions">
@@ -74,6 +76,7 @@
     <string name="entry_merchant">Merchant or place</string>
     <string name="entry_merchant_hint">Truffles</string>
     <string name="entry_paid_with">Paid with</string>
+    <string name="entry_bank">Bank</string>
 
     <!-- Places -->
     <string name="places_title">Places</string>
@@ -108,6 +111,22 @@
 
     <!-- Categories -->
     <string name="categories_title">Categories</string>
+    <string name="categories_manage">Edit categories</string>
+    <string name="category_spend_empty_title">Nothing logged yet</string>
+    <!-- %1$s is a month, for example September 2026 -->
+    <string name="category_spend_empty_body">Nothing was logged in %1$s. Categories show up here once you spend under them.</string>
+    <string name="category_month_empty_title">Nothing here this month</string>
+    <!-- %1$s is a month, for example September 2026 -->
+    <string name="category_month_empty_body">This category took none of your money in %1$s.</string>
+    <string name="category_total_spent">TOTAL SPENT</string>
+    <string name="category_where_it_went">WHERE IT WENT</string>
+    <string name="category_every_expense">EVERY EXPENSE</string>
+    <string name="category_no_place">No place recorded</string>
+    <string name="category_archived_label">Archived</string>
+    <plurals name="category_entries">
+        <item quantity="one">%d entry</item>
+        <item quantity="other">%d entries</item>
+    </plurals>
     <string name="category_new">New category</string>
     <string name="category_edit">Edit category</string>
     <string name="category_name">Name</string>

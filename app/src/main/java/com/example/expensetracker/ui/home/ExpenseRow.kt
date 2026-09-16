@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.expensetracker.data.ExpenseWithCategory
+import com.example.expensetracker.data.paymentLabel
 import com.example.expensetracker.ui.components.CategoryAvatar
 import com.example.expensetracker.ui.format.Money
 import com.example.expensetracker.ui.format.tabular
@@ -33,8 +34,9 @@ import com.example.expensetracker.ui.format.tabular
  * One transaction. The headline is whatever you actually wrote down; the
  * category name is the fallback so a bare amount never shows up unlabelled.
  *
- * [dateLabel] is for lists that are not already grouped by day, and
- * [showMerchant] is turned off on a screen that is already about one place.
+ * [dateLabel] is for lists that are not already grouped by day, [showMerchant]
+ * is turned off on a screen that is already about one place, and [showCategory]
+ * on one already about one category.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -45,6 +47,7 @@ fun ExpenseRow(
     onLongClick: (() -> Unit)? = null,
     dateLabel: String? = null,
     showMerchant: Boolean = true,
+    showCategory: Boolean = true,
 ) {
     val expense = item.expense
     val headline = remember(expense.note, expense.merchant, item.category.name) {
@@ -55,14 +58,14 @@ fun ExpenseRow(
     // a bare expense reads "Food" over "UPI", not "Food" over "Food . UPI".
     // Remembered because this list and its joined string were rebuilt for every
     // visible row on every recomposition, which is once per frame of a scroll.
-    val details = remember(item, headline, dateLabel, showMerchant) {
+    val details = remember(item, headline, dateLabel, showMerchant, showCategory) {
         buildList {
             if (dateLabel != null) add(dateLabel)
-            if (item.category.name != headline) add(item.category.name)
+            if (showCategory && item.category.name != headline) add(item.category.name)
             if (showMerchant && expense.merchant.isNotBlank() && expense.merchant != headline) {
                 add(expense.merchant)
             }
-            add(expense.paymentMethod.label)
+            add(expense.paymentLabel)
         }.joinToString("  \u00B7  ")
     }
     val amount = remember(expense.amountMinor) { Money.format(expense.amountMinor) }

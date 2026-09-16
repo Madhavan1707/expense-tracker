@@ -5,6 +5,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -67,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.expensetracker.AppViewModelProvider
 import com.example.expensetracker.R
+import com.example.expensetracker.data.Bank
 import com.example.expensetracker.data.PaymentMethod
 import com.example.expensetracker.ui.components.CategoryAvatar
 import com.example.expensetracker.ui.format.DateLabels
@@ -328,6 +330,24 @@ fun EntryScreen(
                         onClick = { viewModel.onPaymentMethodChange(method) },
                         label = { Text(method.label) },
                     )
+                }
+            }
+
+            // Only UPI and card have a bank behind them, so the row appears and
+            // disappears with the method above it rather than sitting there
+            // greyed out. Optional on purpose: tap the selected one to clear it.
+            AnimatedVisibility(visible = uiState.showsBankChoice) {
+                Column {
+                    SectionLabel(stringResource(R.string.entry_bank))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Bank.entries.forEach { bank ->
+                            FilterChip(
+                                selected = uiState.bank == bank,
+                                onClick = { viewModel.onBankChange(bank) },
+                                label = { Text(bank.label) },
+                            )
+                        }
+                    }
                 }
             }
 

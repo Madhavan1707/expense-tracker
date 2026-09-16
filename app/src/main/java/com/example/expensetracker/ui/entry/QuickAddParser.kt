@@ -1,5 +1,6 @@
 package com.example.expensetracker.ui.entry
 
+import com.example.expensetracker.data.Bank
 import com.example.expensetracker.data.Category
 import com.example.expensetracker.data.NoteCategoryCount
 import com.example.expensetracker.data.PaymentMethod
@@ -16,12 +17,13 @@ data class QuickAddParse(
     val categoryId: Long? = null,
     val merchant: String? = null,
     val paymentMethod: PaymentMethod? = null,
+    val bank: Bank? = null,
     val date: LocalDate? = null,
     val note: String = "",
 ) {
     val isEmpty: Boolean
         get() = amountMinor == null && categoryId == null && merchant == null &&
-            paymentMethod == null && date == null && note.isBlank()
+            paymentMethod == null && bank == null && date == null && note.isBlank()
 
     companion object {
         val EMPTY = QuickAddParse()
@@ -90,11 +92,26 @@ object QuickAddParser {
         "debit" to PaymentMethod.CARD,
         "visa" to PaymentMethod.CARD,
         "mastercard" to PaymentMethod.CARD,
-        "bank" to PaymentMethod.BANK,
-        "neft" to PaymentMethod.BANK,
-        "imps" to PaymentMethod.BANK,
-        "netbanking" to PaymentMethod.BANK,
-        "transfer" to PaymentMethod.BANK,
+        // A bank transfer is no longer a method of its own. These words still
+        // get consumed rather than left to drift into the note, because they
+        // are plainly about how you paid; "Other" is the honest landing place.
+        "bank" to PaymentMethod.OTHER,
+        "neft" to PaymentMethod.OTHER,
+        "imps" to PaymentMethod.OTHER,
+        "netbanking" to PaymentMethod.OTHER,
+        "transfer" to PaymentMethod.OTHER,
+    )
+
+    /**
+     * "500 dinner hdfc card" knows both halves. A bank name on its own sets no
+     * payment method: which of UPI or card it was is not in the sentence, and
+     * the form already remembers what you used last.
+     */
+    private val BANK_WORDS = mapOf(
+        "sbi" to Bank.SBI,
+        "hdfc" to Bank.HDFC,
+        "hsbc" to Bank.HSBC,
+        "indusind" to Bank.INDUSIND,
     )
 
     private val WEEKDAYS = mapOf(
@@ -131,6 +148,7 @@ object QuickAddParser {
         val merchant = takeMerchant(tokens, vocabulary.merchants)
         val date = takeDate(tokens, today)
         val payment = takePayment(tokens)
+        val bank = takeBank(tokens)
         val amount = takeAmount(tokens)
 
         val leftover = tokens.filterNotNull()
@@ -141,6 +159,7 @@ object QuickAddParser {
             categoryId = categoryId,
             merchant = merchant,
             paymentMethod = payment,
+            bank = bank,
             date = date,
             note = buildNote(leftover, vocabulary),
         )
@@ -228,6 +247,17 @@ object QuickAddParser {
             if (method != null) {
                 tokens[index] = null
                 return method
+            }
+        }
+        return null
+    }
+
+    private fun takeBank(tokens: MutableList<String?>): Bank? {
+        tokens.forEachIndexed { index, raw ->
+            val bank = BANK_WORDS[normalise(raw ?: return@forEachIndexed)]
+            if (bank != null) {
+                tokens[index] = null
+                return bank
             }
         }
         return null
