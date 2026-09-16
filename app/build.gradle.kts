@@ -45,6 +45,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // MigrationTestHelper reads the exported schemas at runtime, off the
+    // device, so they have to ship inside the test APK.
+    sourceSets.getByName("androidTest") {
+        assets.srcDir("$projectDir/schemas")
+    }
 }
 
 // Temporary: Compose compiler stability/skippability report for perf investigation.

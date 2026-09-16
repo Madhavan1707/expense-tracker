@@ -16,7 +16,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import java.time.YearMonth
+import com.example.expensetracker.ui.categories.CATEGORY_ID_ARG
+import com.example.expensetracker.ui.categories.CategoryDetailScreen
 import com.example.expensetracker.ui.categories.CategoryScreen
+import com.example.expensetracker.ui.categories.CategorySpendListScreen
+import com.example.expensetracker.ui.categories.MONTH_ARG
 import com.example.expensetracker.ui.entry.EXPENSE_ID_ARG
 import com.example.expensetracker.ui.entry.EntryScreen
 import com.example.expensetracker.ui.entry.NEW_EXPENSE
@@ -32,7 +37,11 @@ private const val NAV_MILLIS = 220
 private const val NAV_FADE_MILLIS = 140
 
 private const val HOME_ROUTE = "home"
+/** The browse screen: what each category has cost and where it went. */
 private const val CATEGORIES_ROUTE = "categories"
+/** The management screen: rename, recolour, reorder, archive. */
+private const val EDIT_CATEGORIES_ROUTE = "categories-edit"
+private const val CATEGORY_ROUTE = "category"
 private const val ENTRY_ROUTE = "entry"
 private const val PLACES_ROUTE = "places"
 private const val MERCHANT_ROUTE = "merchant"
@@ -74,7 +83,8 @@ fun ExpenseTrackerNavHost(
             HomeScreen(
                 onAddExpense = { navController.navigate(entryRoute()) },
                 onEditExpense = { id -> navController.navigate(entryRoute(expenseId = id)) },
-                onManageCategories = { navController.navigate(CATEGORIES_ROUTE) },
+                onShowCategories = { month -> navController.navigate(categoriesRoute(month)) },
+                onShowCategory = { id, month -> navController.navigate(categoryRoute(id, month)) },
                 onShowPlaces = { navController.navigate(PLACES_ROUTE) },
                 onShowMerchant = { name -> navController.navigate(merchantRoute(name)) },
             )
@@ -96,7 +106,35 @@ fun ExpenseTrackerNavHost(
             EntryScreen(onClose = { navController.popBackStack() })
         }
 
-        composable(CATEGORIES_ROUTE) {
+        composable(
+            route = "$CATEGORIES_ROUTE/{$MONTH_ARG}",
+            arguments = listOf(navArgument(MONTH_ARG) { type = NavType.StringType }),
+        ) { entry ->
+            val month = entry.arguments?.getString(MONTH_ARG)
+            CategorySpendListScreen(
+                onBack = { navController.popBackStack() },
+                onCategoryClick = { id ->
+                    navController.navigate("$CATEGORY_ROUTE/$id/$month")
+                },
+                onEditCategories = { navController.navigate(EDIT_CATEGORIES_ROUTE) },
+            )
+        }
+
+        composable(
+            route = "$CATEGORY_ROUTE/{$CATEGORY_ID_ARG}/{$MONTH_ARG}",
+            arguments = listOf(
+                navArgument(CATEGORY_ID_ARG) { type = NavType.LongType },
+                navArgument(MONTH_ARG) { type = NavType.StringType },
+            ),
+        ) {
+            CategoryDetailScreen(
+                onBack = { navController.popBackStack() },
+                onExpenseClick = { id -> navController.navigate(entryRoute(expenseId = id)) },
+                onPlaceClick = { name -> navController.navigate(merchantRoute(name)) },
+            )
+        }
+
+        composable(EDIT_CATEGORIES_ROUTE) {
             CategoryScreen(onBack = { navController.popBackStack() })
         }
 
@@ -129,3 +167,13 @@ private fun entryRoute(
 /** Merchant names contain spaces and slashes, so they cannot go in a path raw. */
 private fun merchantRoute(name: String): String =
     "$MERCHANT_ROUTE/${Uri.encode(name)}"
+
+/**
+ * Both category routes carry the month the home screen was showing, so the
+ * figures on the destination match the ones that were tapped. YearMonth's own
+ * "2026-09" form is path-safe.
+ */
+private fun categoriesRoute(month: YearMonth): String = "$CATEGORIES_ROUTE/$month"
+
+private fun categoryRoute(categoryId: Long, month: YearMonth): String =
+    "$CATEGORY_ROUTE/$categoryId/$month"

@@ -1,7 +1,11 @@
 package com.example.expensetracker.ui.entry
 
+import com.example.expensetracker.data.Bank
+import com.example.expensetracker.data.onlyFor
+import com.example.expensetracker.data.PaymentMethod
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -47,6 +51,65 @@ class EntryUiStateTest {
     fun `note and merchant are optional`() {
         val state = EntryUiState(amountInput = "420", categoryId = 1L, note = "", merchant = "")
         assertTrue(state.canSave)
+    }
+
+    @Test
+    fun `a bank is never required to save`() {
+        val cardWithNoBank = EntryUiState(
+            amountInput = "420",
+            categoryId = 1L,
+            paymentMethod = PaymentMethod.CARD,
+            bank = null,
+        )
+
+        assertTrue(cardWithNoBank.canSave)
+    }
+
+    @Test
+    fun `only UPI and card ask which bank`() {
+        fun state(method: PaymentMethod) =
+            EntryUiState(paymentMethod = method, prefilled = true)
+
+        assertTrue(state(PaymentMethod.UPI).showsBankChoice)
+        assertTrue(state(PaymentMethod.CARD).showsBankChoice)
+        assertFalse(state(PaymentMethod.CASH).showsBankChoice)
+        assertFalse(state(PaymentMethod.OTHER).showsBankChoice)
+    }
+
+    /**
+     * The form defaults to UPI, so without this the bank row rendered expanded
+     * and then animated shut the moment the remembered method came back as
+     * Cash — a visible collapse on every new entry after a cash expense.
+     */
+    @Test
+    fun `the bank row stays shut until the remembered method arrives`() {
+        val beforePrefill = EntryUiState(paymentMethod = PaymentMethod.UPI)
+
+        assertFalse(beforePrefill.showsBankChoice)
+        assertTrue(beforePrefill.copy(prefilled = true).showsBankChoice)
+    }
+
+    /**
+     * A bank added to the enum but not to the parser would be selectable on the
+     * form and invisible to quick add. This is the guarantee the old version of
+     * this test only appeared to make: it compared the enum with its own
+     * declaration, which no production change could ever break.
+     */
+    @Test
+    fun `every bank on the form is also a word quick add knows`() {
+        Bank.entries.forEach { bank ->
+            val parsed = QuickAddParser.parse("100 tea ${bank.name.lowercase()} upi")
+            assertEquals("quick add does not know ${bank.name}", bank, parsed.bank)
+        }
+    }
+
+    @Test
+    fun `the bank rule admits only UPI and card`() {
+        assertEquals(Bank.HDFC, Bank.HDFC.onlyFor(PaymentMethod.UPI))
+        assertEquals(Bank.HDFC, Bank.HDFC.onlyFor(PaymentMethod.CARD))
+        assertNull(Bank.HDFC.onlyFor(PaymentMethod.CASH))
+        assertNull(Bank.HDFC.onlyFor(PaymentMethod.OTHER))
+        assertNull(null.onlyFor(PaymentMethod.UPI))
     }
 
     @Test

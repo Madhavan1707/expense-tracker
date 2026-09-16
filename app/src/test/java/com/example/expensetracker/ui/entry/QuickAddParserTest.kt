@@ -1,9 +1,11 @@
 package com.example.expensetracker.ui.entry
 
+import com.example.expensetracker.data.Bank
 import com.example.expensetracker.data.Category
 import com.example.expensetracker.data.NoteCategoryCount
 import com.example.expensetracker.data.PaymentMethod
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -173,8 +175,76 @@ class QuickAddParserTest {
         assertEquals(PaymentMethod.UPI, parse("100 tea gpay").paymentMethod)
         assertEquals(PaymentMethod.UPI, parse("100 tea phonepe").paymentMethod)
         assertEquals(PaymentMethod.CARD, parse("100 tea credit").paymentMethod)
-        assertEquals(PaymentMethod.BANK, parse("100 rent neft").paymentMethod)
         assertEquals(PaymentMethod.CASH, parse("100 tea cash").paymentMethod)
+    }
+
+    @Test
+    fun `a bank transfer has no method of its own any more`() {
+        assertEquals(PaymentMethod.OTHER, parse("100 rent neft").paymentMethod)
+        assertEquals(PaymentMethod.OTHER, parse("100 rent netbanking").paymentMethod)
+        // Consumed, not left to turn up as the note.
+        assertEquals("Rent", parse("100 rent neft").note)
+    }
+
+    // --- banks --------------------------------------------------------------
+
+    @Test
+    fun `picks the bank out of the line`() {
+        val result = parse("500 dinner hdfc card")
+
+        assertEquals(Bank.HDFC, result.bank)
+        assertEquals(PaymentMethod.CARD, result.paymentMethod)
+        assertEquals(50_000L, result.amountMinor)
+    }
+
+    @Test
+    fun `knows every bank on offer`() {
+        assertEquals(Bank.SBI, parse("100 tea sbi upi").bank)
+        assertEquals(Bank.HDFC, parse("100 tea hdfc upi").bank)
+        assertEquals(Bank.HSBC, parse("100 tea hsbc card").bank)
+        assertEquals(Bank.INDUSIND, parse("100 tea indusind card").bank)
+    }
+
+    @Test
+    fun `a bank name never reaches the note`() {
+        assertEquals("Dinner", parse("500 dinner hdfc card").note)
+    }
+
+    @Test
+    fun `a bank on its own guesses no payment method`() {
+        val result = parse("500 dinner hdfc")
+
+        assertEquals(Bank.HDFC, result.bank)
+        assertNull(result.paymentMethod)
+    }
+
+    /**
+     * The combination the separate neft and bank tests both missed: neft
+     * resolves to Other, which carries no bank, so the parsed HDFC had nowhere
+     * to go. It was also already consumed out of the tokens, so it could not
+     * fall through to the note either and simply vanished.
+     */
+    @Test
+    fun `a bank named alongside a transfer word is still parsed`() {
+        val result = parse("20000 rent hdfc neft")
+
+        assertEquals(PaymentMethod.OTHER, result.paymentMethod)
+        assertEquals(Bank.HDFC, result.bank)
+        assertEquals(2_000_000L, result.amountMinor)
+    }
+
+    @Test
+    fun `a bank-only line counts as something`() {
+        assertFalse(parse("hdfc").isEmpty)
+        assertEquals(Bank.HDFC, parse("hdfc").bank)
+    }
+
+    @Test
+    fun `an unknown bank is left alone`() {
+        val result = parse("500 dinner axis")
+
+        assertNull(result.bank)
+        assertEquals("Dinner axis", result.note)
     }
 
     // --- categories ---------------------------------------------------------

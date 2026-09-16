@@ -3,6 +3,8 @@ package com.example.expensetracker.ui.entry
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.expensetracker.data.Bank
+import com.example.expensetracker.data.onlyFor
 import com.example.expensetracker.data.Category
 import com.example.expensetracker.data.Expense
 import com.example.expensetracker.data.ExpenseRepository
@@ -32,16 +34,34 @@ data class EntryUiState(
     val note: String = "",
     val merchant: String = "",
     val paymentMethod: PaymentMethod = PaymentMethod.UPI,
+    val bank: Bank? = null,
     val categories: List<Category> = emptyList(),
     val merchantSuggestions: List<String> = emptyList(),
     val repeatSuggestions: List<RepeatSuggestion> = emptyList(),
     val isEditing: Boolean = false,
     val finished: Boolean = false,
+    /**
+     * False until the remembered payment method has been read back. Without it
+     * the bank row rendered expanded on the default of UPI and then animated
+     * shut the moment prefill returned Cash, on the app's hottest screen.
+     */
+    val prefilled: Boolean = false,
+    /** Set once you pick a payment method yourself, so prefill stops overriding it. */
+    val paymentTouched: Boolean = false,
 ) {
     val amountMinor: Long? get() = Money.parse(amountInput)
 
-    /** Everything else has a sensible default; only these two must be supplied. */
+    /**
+     * Everything else has a sensible default; only these two must be supplied.
+     *
+     * The bank is not one of them. Naming it is worth a tap when you know it,
+     * and blocking a save over it would turn the fastest part of the form into
+     * the slowest.
+     */
     val canSave: Boolean get() = (amountMinor ?: 0L) > 0L && categoryId != null
+
+    /** Whether to offer the bank chips at all. Cash has no bank behind it. */
+    val showsBankChoice: Boolean get() = prefilled && paymentMethod.usesBank
 
     /** Merchants you have used before that match what you have typed so far. */
     fun matchingMerchants(limit: Int = 4): List<String> {
@@ -103,8 +123,21 @@ class EntryViewModel(
                 repository.findExpense(templateId)?.let { copyFrom(it) }
                 return
             }
-            val remembered = repository.lastPaymentMethod() ?: PaymentMethod.UPI
-            _uiState.update { it.copy(paymentMethod = remembered) }
+            val remembered = repository.lastPaymentChoice()
+            _uiState.update { current ->
+                // Tapping a method before this suspending read returns used to
+                // be silently overwritten by it.
+                if (current.paymentTouched) {
+                    current.copy(prefilled = true)
+                } else {
+                    val method = remembered?.paymentMethod ?: PaymentMethod.UPI
+                    current.copy(
+                        paymentMethod = method,
+                        bank = remembered?.bank.onlyFor(method),
+                        prefilled = true,
+                    )
+                }
+            }
             return
         }
         val expense = repository.findExpense(expenseId) ?: return
@@ -117,7 +150,9 @@ class EntryViewModel(
                 note = expense.note,
                 merchant = expense.merchant,
                 paymentMethod = expense.paymentMethod,
+                bank = expense.bank,
                 isEditing = true,
+                prefilled = true,
             )
         }
     }
@@ -136,7 +171,9 @@ class EntryViewModel(
                 note = expense.note,
                 merchant = expense.merchant,
                 paymentMethod = expense.paymentMethod,
+                bank = expense.bank,
                 isEditing = false,
+                prefilled = true,
             )
         }
     }
@@ -154,6 +191,8 @@ class EntryViewModel(
                 note = suggestion.note,
                 merchant = suggestion.merchant,
                 paymentMethod = suggestion.paymentMethod,
+                bank = suggestion.bank.onlyFor(suggestion.paymentMethod),
+                prefilled = true,
             )
         }
     }
@@ -181,13 +220,32 @@ class EntryViewModel(
         if (parsed.isEmpty) return false
 
         _uiState.update { current ->
+            val method = parsed.paymentMethod ?: current.paymentMethod
+            val bank = (parsed.bank ?: current.bank).onlyFor(method)
+
+            // "20000 rent hdfc neft" parses HDFC and consumes the word, but
+            // neft resolves to Other, which carries no bank. Dropping it there
+            // meant the bank name landed in no column, no note and no merchant
+            // — it simply disappeared. If we cannot store it, it goes in the
+            // note, where you can at least see it and correct it.
+            val strandedBank = parsed.bank?.takeIf { bank == null }
+            val note = parsed.note.ifBlank { current.note }
+            val notedBank = when {
+                strandedBank == null -> note
+                note.isBlank() -> strandedBank.label
+                note.contains(strandedBank.label, ignoreCase = true) -> note
+                else -> note + " " + strandedBank.label
+            }
+
             current.copy(
                 amountInput = parsed.amountMinor?.let(::plainAmount) ?: current.amountInput,
                 categoryId = parsed.categoryId ?: current.categoryId,
                 merchant = parsed.merchant ?: current.merchant,
-                paymentMethod = parsed.paymentMethod ?: current.paymentMethod,
+                paymentMethod = method,
+                bank = bank,
+                paymentTouched = current.paymentTouched || parsed.paymentMethod != null,
                 date = parsed.date ?: current.date,
-                note = parsed.note.ifBlank { current.note },
+                note = notedBank,
             )
         }
         return true
@@ -209,8 +267,28 @@ class EntryViewModel(
 
     fun onMerchantChange(merchant: String) = _uiState.update { it.copy(merchant = merchant) }
 
-    fun onPaymentMethodChange(method: PaymentMethod) =
-        _uiState.update { it.copy(paymentMethod = method) }
+    /**
+     * Switching to cash drops the bank rather than hiding it, so the row saved
+     * matches the form on screen. Moving between UPI and card keeps it: the
+     * card and the UPI app behind it are usually the same bank.
+     */
+    fun onPaymentMethodChange(method: PaymentMethod) = _uiState.update { current ->
+        current.copy(
+            paymentMethod = method,
+            bank = current.bank.onlyFor(method),
+            paymentTouched = true,
+        )
+    }
+
+    /**
+     * Tapping the selected bank again clears it, because it is optional. The
+     * rule is applied here too: AnimatedVisibility keeps the chips hit-testable
+     * while they animate shut, so a tap can land just after a switch to Cash.
+     */
+    fun onBankChange(bank: Bank) = _uiState.update { current ->
+        val next = if (current.bank == bank) null else bank
+        current.copy(bank = next.onlyFor(current.paymentMethod))
+    }
 
     fun save() {
         val state = _uiState.value
@@ -228,6 +306,7 @@ class EntryViewModel(
                     note = state.note,
                     merchant = state.merchant,
                     paymentMethod = state.paymentMethod,
+                    bank = state.bank.onlyFor(state.paymentMethod),
                 )
             } else {
                 repository.updateExpense(
@@ -238,6 +317,7 @@ class EntryViewModel(
                         note = state.note,
                         merchant = state.merchant,
                         paymentMethod = state.paymentMethod,
+                        bank = state.bank.onlyFor(state.paymentMethod),
                     )
                 )
             }

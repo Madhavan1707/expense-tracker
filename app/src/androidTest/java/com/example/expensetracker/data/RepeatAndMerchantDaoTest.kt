@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -46,6 +47,7 @@ class RepeatAndMerchantDaoTest {
         note: String = "",
         merchant: String = "",
         method: PaymentMethod = PaymentMethod.CASH,
+        bank: Bank? = null,
         createdAt: Long = System.nanoTime(),
         date: LocalDate = LocalDate.of(2026, 8, 20),
     ) = expenseDao.insert(
@@ -57,6 +59,7 @@ class RepeatAndMerchantDaoTest {
             note = note,
             merchant = merchant,
             paymentMethod = method,
+            bank = bank,
         )
     )
 
@@ -111,6 +114,27 @@ class RepeatAndMerchantDaoTest {
 
         assertEquals(1, suggestions.size)
         assertEquals(PaymentMethod.CASH, suggestions.single().paymentMethod)
+    }
+
+    @Test
+    fun twoBanksAreTwoHabits() = runBlocking {
+        val card = PaymentMethod.CARD
+        insert(90_000L, note = "Groceries", method = card, bank = Bank.HDFC, createdAt = 100L)
+        insert(90_000L, note = "Groceries", method = card, bank = Bank.HDFC, createdAt = 200L)
+        insert(90_000L, note = "Groceries", method = card, bank = Bank.SBI, createdAt = 300L)
+
+        val suggestions = expenseDao.observeRepeatSuggestions(5).first()
+
+        assertEquals(1, suggestions.size)
+        assertEquals(Bank.HDFC, suggestions.single().bank)
+    }
+
+    @Test
+    fun aChipForACashHabitCarriesNoBank() = runBlocking {
+        insert(22_000L, note = "Auto", method = PaymentMethod.CASH, createdAt = 100L)
+        insert(22_000L, note = "Auto", method = PaymentMethod.CASH, createdAt = 200L)
+
+        assertNull(expenseDao.observeRepeatSuggestions(3).first().single().bank)
     }
 
     @Test

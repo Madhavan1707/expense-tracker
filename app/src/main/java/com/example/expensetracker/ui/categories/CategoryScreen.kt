@@ -84,7 +84,7 @@ fun CategoryScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.categories_title)) },
+                title = { Text(stringResource(R.string.categories_manage)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

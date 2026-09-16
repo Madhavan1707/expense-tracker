@@ -2,7 +2,7 @@ package com.example.expensetracker.data
 
 /**
  * An expense you have logged more than once: the same note, merchant, category
- * and payment method. Offered on the entry screen to fill the form in one tap.
+ * and way of paying. Offered on the entry screen to fill the form in one tap.
  *
  * [lastAmountMinor] is what it cost the last time, not a fixed price — the auto
  * ride that usually costs 220 sometimes costs 284, so this only prefills the
@@ -17,6 +17,7 @@ data class RepeatSuggestion(
     val note: String,
     val merchant: String,
     val paymentMethod: PaymentMethod,
+    val bank: Bank?,
     val lastAmountMinor: Long,
     val useCount: Int,
     val lastUsedAt: Long,
@@ -45,3 +46,33 @@ data class NoteCategoryCount(
     val categoryId: Long,
     val useCount: Int,
 )
+
+/**
+ * How the last expense was paid for, method and bank together. Prefills the
+ * entry form, because the card you used yesterday is usually the card you are
+ * about to use today.
+ */
+data class PaymentChoice(
+    val paymentMethod: PaymentMethod,
+    val bank: Bank?,
+)
+
+/**
+ * Everything spent under one category, aggregated across every expense filed
+ * against it. The categories side of [MerchantSummary].
+ *
+ * Archived categories still appear: hiding "Education" from the entry form does
+ * not unspend what went through it.
+ */
+data class CategorySpendSummary(
+    val categoryId: Long,
+    val name: String,
+    val emoji: String,
+    val colorArgb: Int,
+    val isArchived: Boolean,
+    val entryCount: Int,
+    val totalMinor: Long,
+    val lastDate: Long,
+) {
+    val averageMinor: Long get() = if (entryCount > 0) totalMinor / entryCount else 0L
+}

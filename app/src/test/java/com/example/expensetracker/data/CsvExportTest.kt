@@ -15,6 +15,7 @@ class CsvExportTest {
         note: String = "",
         merchant: String = "",
         paymentMethod: PaymentMethod = PaymentMethod.CASH,
+        bank: Bank? = null,
     ) = ExpenseWithCategory(
         expense = Expense(
             id = 1L,
@@ -25,6 +26,7 @@ class CsvExportTest {
             note = note,
             merchant = merchant,
             paymentMethod = paymentMethod,
+            bank = bank,
         ),
         category = Category(
             id = 1L,
@@ -40,7 +42,7 @@ class CsvExportTest {
     @Test
     fun `writes a header even with nothing to export`() {
         val csv = CsvExport.toCsv(emptyList())
-        assertEquals("Date,Amount,Category,Note,Merchant,Payment method\r\n", csv)
+        assertEquals("Date,Amount,Category,Note,Merchant,Payment method,Bank\r\n", csv)
     }
 
     @Test
@@ -53,7 +55,7 @@ class CsvExportTest {
     @Test
     fun `writes the date as ISO and the amount as a plain decimal`() {
         val csv = CsvExport.toCsv(listOf(row(amountMinor = 28_400L, date = "2026-01-31")))
-        assertEquals("2026-01-31,284.00,Travel,,,Cash", lines(csv)[1])
+        assertEquals("2026-01-31,284.00,Travel,,,Cash,", lines(csv)[1])
     }
 
     @Test
@@ -95,7 +97,18 @@ class CsvExportTest {
     @Test
     fun `leaves ordinary text alone`() {
         val csv = CsvExport.toCsv(listOf(row(note = "auto to office", merchant = "Ola")))
-        assertEquals("2026-09-08,284.00,Travel,auto to office,Ola,Cash", lines(csv)[1])
+        assertEquals("2026-09-08,284.00,Travel,auto to office,Ola,Cash,", lines(csv)[1])
+    }
+
+    @Test
+    fun `writes the bank in its own column, empty where there is none`() {
+        val withBank = CsvExport.toCsv(
+            listOf(row(paymentMethod = PaymentMethod.CARD, bank = Bank.INDUSIND))
+        )
+        assertEquals("2026-09-08,284.00,Travel,,,Card,IndusInd", lines(withBank)[1])
+
+        val withoutBank = CsvExport.toCsv(listOf(row(paymentMethod = PaymentMethod.CASH)))
+        assertEquals("2026-09-08,284.00,Travel,,,Cash,", lines(withoutBank)[1])
     }
 
     @Test

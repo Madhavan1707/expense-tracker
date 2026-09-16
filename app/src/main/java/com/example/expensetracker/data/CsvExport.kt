@@ -34,7 +34,12 @@ fun ExportScope.epochDayRange(): LongRange = when (this) {
  */
 object CsvExport {
 
-    val HEADERS = listOf("Date", "Amount", "Category", "Note", "Merchant", "Payment method")
+    /**
+     * Bank is its own column rather than folded into "Payment method", because
+     * a spreadsheet can only pivot on a column that holds one thing.
+     */
+    val HEADERS =
+        listOf("Date", "Amount", "Category", "Note", "Merchant", "Payment method", "Bank")
 
     /** RFC 4180 says CRLF, and Excel is the reader most likely to care. */
     private const val CRLF = "\r\n"
@@ -65,6 +70,7 @@ object CsvExport {
                 expense.note,
                 expense.merchant,
                 expense.paymentMethod.label,
+                expense.bank?.label.orEmpty(),
             )
             append(cells.joinToString(",", transform = ::escape))
             append(CRLF)

@@ -8,4 +8,10 @@ class Converters {
 
     @TypeConverter
     fun fromPaymentMethod(value: PaymentMethod): String = value.name
+
+    @TypeConverter
+    fun toBank(value: String?): Bank? = Bank.fromName(value)
+
+    @TypeConverter
+    fun fromBank(value: Bank?): String? = value?.name
 }

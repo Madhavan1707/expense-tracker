@@ -25,6 +25,16 @@ class ExpenseRepository(
     fun observeMerchant(name: String): Flow<List<ExpenseWithCategory>> =
         expenseDao.observeForMerchant(name)
 
+    /** Every category spent under in [month], biggest spend first. */
+    fun observeCategorySpend(month: YearMonth): Flow<List<CategorySpendSummary>> =
+        month.epochDayRange().let { expenseDao.observeCategorySpendInRange(it.first, it.last) }
+
+    /** One category's expenses for [month], newest first. */
+    fun observeCategory(categoryId: Long, month: YearMonth): Flow<List<ExpenseWithCategory>> =
+        month.epochDayRange().let {
+            expenseDao.observeForCategoryInRange(categoryId, it.first, it.last)
+        }
+
     fun observeMonth(month: YearMonth): Flow<List<ExpenseWithCategory>> =
         month.epochDayRange().let { expenseDao.observeInRange(it.first, it.last) }
 
@@ -55,7 +65,7 @@ class ExpenseRepository(
 
     suspend fun findExpense(id: Long): Expense? = expenseDao.findById(id)
 
-    suspend fun lastPaymentMethod(): PaymentMethod? = expenseDao.lastPaymentMethod()
+    suspend fun lastPaymentChoice(): PaymentChoice? = expenseDao.lastPaymentChoice()
 
     suspend fun addExpense(
         amountMinor: Long,
@@ -64,6 +74,7 @@ class ExpenseRepository(
         note: String,
         merchant: String,
         paymentMethod: PaymentMethod,
+        bank: Bank? = null,
     ): Long = expenseDao.insert(
         Expense(
             amountMinor = amountMinor,
@@ -73,17 +84,28 @@ class ExpenseRepository(
             note = note.trim(),
             merchant = merchant.trim(),
             paymentMethod = paymentMethod,
+            bank = bank.onlyFor(paymentMethod),
         )
     )
 
     suspend fun updateExpense(expense: Expense) =
-        expenseDao.update(expense.copy(note = expense.note.trim(), merchant = expense.merchant.trim()))
+        expenseDao.update(
+            expense.copy(
+                note = expense.note.trim(),
+                merchant = expense.merchant.trim(),
+                bank = expense.bank.onlyFor(expense.paymentMethod),
+            )
+        )
 
     suspend fun deleteExpense(expense: Expense) = expenseDao.delete(expense)
 
-    /** Puts a deleted expense back, keeping its original id. */
+    /**
+     * Puts a deleted expense back, keeping its original id. The bank rule is
+     * applied here too: undo is a write like any other, and it used to be the
+     * one path that could reintroduce a row the form cannot represent.
+     */
     suspend fun restoreExpense(expense: Expense) {
-        expenseDao.insert(expense)
+        expenseDao.insert(expense.copy(bank = expense.bank.onlyFor(expense.paymentMethod)))
     }
 
     suspend fun addCategory(name: String, emoji: String, colorArgb: Int): Long =
